@@ -64,7 +64,7 @@ public class ConnectionTester : IConnectionTester
 
         if (!Directory.Exists(profile.Host))
         {
-            throw new InvalidOperationException("La ruta local no existe o no es accesible.");
+            Directory.CreateDirectory(profile.Host);
         }
     }
 

@@ -299,6 +299,6 @@ public class BackupOrchestrator
         progress?.Report(entry);
         var sourcePart = string.IsNullOrWhiteSpace(sourcePath) ? "-" : sourcePath;
         var destinationPart = string.IsNullOrWhiteSpace(destinationPath) ? "-" : destinationPath;
-        detailBuilder.AppendLine($"{entry.TimestampText} | {entry.FileName} | {entry.Status} | ORIGEN: {sourcePart} | DESTINO: {destinationPart}");
+        detailBuilder.AppendLine($"{entry.TimestampText} | {entry.Status} | ARCHIVO: {entry.FileName} | ORIGEN: {sourcePart} | DESTINO: {destinationPart}");
     }
 }

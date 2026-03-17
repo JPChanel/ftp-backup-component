@@ -7,7 +7,7 @@
         xmlns:views="clr-namespace:app_ftp.Presentacion.Views"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
-        Title="UtiBackup"
+        Title="BaaSService"
         Width="1000"
         Height="760"
         Background="{StaticResource SkyBackgroundBrush}"
@@ -88,8 +88,8 @@
                                                      Foreground="White" />
                         </Border>
                         <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="UtiBackup" FontSize="26" FontWeight="SemiBold"/>
-                            <TextBlock Text="ENGINE CORE" FontFamily="Consolas" FontSize="12" Foreground="{StaticResource SidebarMutedBrush}" />
+                            <TextBlock Text="BaaSService" FontSize="24" FontWeight="SemiBold"/>
+                            <TextBlock Text="Backup as a Service" FontFamily="Consolas" FontSize="12" Foreground="{StaticResource SidebarMutedBrush}" />
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>

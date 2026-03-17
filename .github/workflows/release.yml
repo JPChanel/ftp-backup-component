@@ -1,0 +1,61 @@
+name: Publicar Nueva Versión de FTP Backup Component
+
+# 1. DISPARADOR:
+# Esto solo se ejecuta cuando subes un tag que empieza con "v"
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Ej: v1.0.5
+
+jobs:
+  build-and-release:
+    # 2. MÁQUINA VIRTUAL:
+    # Usamos un servidor de Windows (¡esto es lo que GitLab no te daba gratis!)
+    runs-on: windows-latest
+
+    steps:
+      # 3. Trae tu código fuente
+      - name: 1. Obtener el código
+        uses: actions/checkout@v3
+
+      # 4. Instala el SDK de .NET 8
+      - name: 2. Instalar .NET 8
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      # 5. Instala la herramienta VeloPack
+      - name: 3. Instalar VPK (VeloPack CLI)
+        run: dotnet tool install -g vpk
+
+      # 6. Obtiene la versión del tag (ej: '1.0.5' desde 'v1.0.5')
+      - name: 4. Extraer número de versión del tag
+        run: |
+          $TagName = $env:GITHUB_REF_NAME
+          $Version = $TagName.Substring(1)
+          echo "TAG_VERSION=$Version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      # 7a. Inyectar Git en el código fuente ANTES de compilar
+      # windows-latest ya tiene Git global, lo copiamos a la carpeta del proyecto
+      # para que MSBuild lo empaquete como contenido dependiente de la app.
+      - name: 4b. Incrustar Git embebido en el proyecto
+        shell: pwsh
+        run: |
+          $src = "C:\Program Files\Git"
+          $dst = ".\AppFtp\git"
+          Write-Host "[AppFtp] Copiando Git desde: $src a $dst"
+          xcopy /E /I /Y "$src" "$dst"
+          Write-Host "[AppFtp] ✅ Git embebido inyectado en código fuente"
+      # 7b. Compila tu aplicación (como lo hacías localmente)
+      - name: 5. Publicar la aplicación (dotnet publish)
+        run: dotnet publish app-ftp/app-ftp.csproj -c Release --self-contained -r win-x64 -o ".\publish-output" /p:Version=${{ env.TAG_VERSION }}
+      # 8. Empaqueta con VeloPack (como lo hacías localmente)
+      - name: 6. Empaquetar con VeloPack (vpk pack)
+        run: vpk pack --packId BaaSService --packVersion ${{ env.TAG_VERSION }} --packDir ".\publish-output" --mainExe BaaSService.exe -o "Releases"
+
+      # 9. Sube los binarios al Release de GitHub
+      - name: 7. Subir binarios al Release (vpk upload)
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }} 
+          REPO_URL: https://github.com/JPChanel/ftp-backup-component
+        run: vpk upload github --repoUrl="$env:REPO_URL" --token="$env:GITHUB_TOKEN" --releaseName="BaaSService v${env:TAG_VERSION}" --tag="v${env:TAG_VERSION}" --publish
