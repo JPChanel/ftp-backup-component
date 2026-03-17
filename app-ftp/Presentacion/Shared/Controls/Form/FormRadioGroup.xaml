@@ -1,0 +1,41 @@
+﻿<UserControl x:Class="app_ftp.Presentacion.Shared.Controls.Form.FormRadioGroup"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:app_ftp.Config.Converters">
+    
+    <UserControl.Resources>
+        <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter"/>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <!-- Label opcional -->
+        <TextBlock Text="{Binding Label, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                   FontWeight="Medium"
+                   FontSize="13"
+                   Margin="0,0,0,8"
+                   Visibility="{Binding Label, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}"/>
+        
+        <!-- ItemsControl para generar RadioButtons dinÃ¡micamente -->
+        <ItemsControl x:Name="RadioItemsControl" 
+                      ItemsSource="{Binding Options, RelativeSource={RelativeSource AncestorType=UserControl}}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="{Binding Orientation, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <RadioButton Content="{Binding Label}"
+                                 Tag="{Binding Value}"
+                                 GroupName="{Binding GroupName, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                 FontSize="{Binding FontSize, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                 Margin="{Binding ItemMargin, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                 IsEnabled="{Binding IsEnabled, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                 Checked="RadioButton_Checked"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>
+

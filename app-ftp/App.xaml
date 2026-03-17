@@ -1,0 +1,24 @@
+<Application x:Class="app_ftp.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:app_ftp"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <materialDesign:BundledTheme BaseTheme="Light"
+                                             PrimaryColor="Indigo"
+                                             SecondaryColor="Cyan" />
+                <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign3.Defaults.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <SolidColorBrush x:Key="SkyBackgroundBrush" Color="#F4F6FB" />
+            <SolidColorBrush x:Key="SidebarBrush" Color="#FFF" />
+            <SolidColorBrush x:Key="SidebarSurfaceBrush" Color="#16213E" />
+            <SolidColorBrush x:Key="SidebarTextBrush" Color="#D7E1FF" />
+            <SolidColorBrush x:Key="SidebarMutedBrush" Color="#94A3B8" />
+            <SolidColorBrush x:Key="PrimaryHueMidBrush" Color="#3949AB" />
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

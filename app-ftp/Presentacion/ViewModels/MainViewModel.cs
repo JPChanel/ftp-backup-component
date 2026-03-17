@@ -1,0 +1,750 @@
+using app_ftp.Config;
+using app_ftp.Interface;
+using app_ftp.Presentacion.Common;
+using app_ftp.Services;
+using app_ftp.Services.Models;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Windows.Input;
+using System.Windows.Media;
+
+namespace app_ftp.Presentacion.ViewModels;
+
+public class MainViewModel : ObservableObject
+{
+    private readonly ConnectionStore _connectionStore;
+    private readonly SettingsStore _settingsStore;
+    private readonly LogStore _logStore;
+    private readonly BackupOrchestrator _backupOrchestrator;
+    private readonly IConnectionTester _connectionTester;
+    private readonly MainThreadNotifier _notifier;
+    private UiSection _selectedSection = UiSection.Dashboard;
+    private ConnectionProfile? _selectedSourceConnection;
+    private ConnectionProfile? _selectedDestinationConnection;
+    private string _sourcePath = string.Empty;
+    private string _destinationPath = string.Empty;
+    private string _backupNotes = string.Empty;
+    private DateTime? _filterFromDate;
+    private DateTime? _filterToDate;
+    private string _statusMessage = string.Empty;
+    private bool _statusIsError;
+    private string _logSearchText = string.Empty;
+    private BackupLogEntry? _selectedLog;
+    private bool _isRunningBackup;
+    private bool _isTestingConnection;
+    private CancellationTokenSource? _backupCancellationSource;
+    private ConnectionProfile _editableConnection = new();
+    private bool _deleteSourceAfterCopy;
+    private bool _isConnectionEditorOpen;
+    private bool _isBackupConsoleOpen;
+    private string _backupConsoleStatus = string.Empty;
+
+    public MainViewModel(
+        ConnectionStore connectionStore,
+        SettingsStore settingsStore,
+        LogStore logStore,
+        BackupOrchestrator backupOrchestrator,
+        IConnectionTester connectionTester,
+        MainThreadNotifier notifier)
+    {
+        _connectionStore = connectionStore;
+        _settingsStore = settingsStore;
+        _logStore = logStore;
+        _backupOrchestrator = backupOrchestrator;
+        _connectionTester = connectionTester;
+        _notifier = notifier;
+
+        Connections = new ObservableCollection<ConnectionProfile>(_connectionStore.Load().Reverse());
+        Settings = _settingsStore.Load();
+        Logs = new ObservableCollection<BackupLogEntry>(_logStore.Load().OrderByDescending(x => x.Timestamp));
+        FilteredLogs = new ObservableCollection<BackupLogEntry>(Logs);
+        Dashboard = new DashboardViewModel(this);
+        ConnectionsSection = new ConnectionsViewModel(this);
+        LogsSection = new LogsViewModel(this);
+
+        SelectedSourceConnection = Connections.FirstOrDefault();
+        SelectedDestinationConnection = Connections.Skip(1).FirstOrDefault() ?? Connections.FirstOrDefault();
+
+        ShowDashboardCommand = new RelayCommand(() => SetSection(UiSection.Dashboard));
+        ShowConnectionsCommand = new RelayCommand(() => SetSection(UiSection.Connections));
+        ShowLogsCommand = new RelayCommand(() => SetSection(UiSection.Logs));
+        ClearStatusCommand = new RelayCommand(() => StatusMessage = string.Empty);
+        CreateConnectionCommand = new RelayCommand(CreateConnection);
+        EditConnectionCommand = new RelayCommand(EditConnection);
+        DeleteConnectionCommand = new RelayCommand(DeleteConnection);
+        SaveConnectionCommand = new RelayCommand(SaveConnection);
+        ResetConnectionEditorCommand = new RelayCommand(CreateConnection);
+        CloseConnectionEditorCommand = new RelayCommand(CloseConnectionEditor);
+        TestConnectionCommand = new AsyncRelayCommand(TestConnectionAsync, () => !_isTestingConnection);
+        SaveSettingsCommand = new RelayCommand(SaveSettings);
+        RunBackupCommand = new AsyncRelayCommand(RunBackupAsync, () => !_isRunningBackup);
+        CancelBackupCommand = new RelayCommand(CancelBackup);
+
+        _notifier.StatusPublished += (message, isError) =>
+        {
+            StatusMessage = message;
+            _statusIsError = isError;
+            RaiseStatusColors();
+        };
+
+        AttachEditableConnectionHandlers(_editableConnection);
+        UpdateDashboard();
+        SetSection(UiSection.Dashboard);
+    }
+
+    public ObservableCollection<ConnectionProfile> Connections { get; }
+    public ObservableCollection<BackupLogEntry> Logs { get; }
+    public ObservableCollection<BackupLogEntry> FilteredLogs { get; }
+    public ObservableCollection<BackupProgressEntry> BackupConsoleEntries { get; } = [];
+    public AppSettings Settings { get; }
+    public DashboardViewModel Dashboard { get; }
+    public ConnectionsViewModel ConnectionsSection { get; }
+    public LogsViewModel LogsSection { get; }
+
+    public ICommand ShowDashboardCommand { get; }
+    public ICommand ShowConnectionsCommand { get; }
+    public ICommand ShowLogsCommand { get; }
+    public ICommand ShowSettingsCommand { get; }
+    public ICommand ClearStatusCommand { get; }
+    public ICommand CreateConnectionCommand { get; }
+    public ICommand EditConnectionCommand { get; }
+    public ICommand DeleteConnectionCommand { get; }
+    public ICommand SaveConnectionCommand { get; }
+    public ICommand ResetConnectionEditorCommand { get; }
+    public ICommand CloseConnectionEditorCommand { get; }
+    public ICommand TestConnectionCommand { get; }
+    public ICommand SaveSettingsCommand { get; }
+    public ICommand RunBackupCommand { get; }
+    public ICommand CancelBackupCommand { get; }
+    public ICommand CloseBackupConsoleCommand => new RelayCommand(() => IsBackupConsoleOpen = false);
+
+    public ConnectionProfile? SelectedSourceConnection
+    {
+        get => _selectedSourceConnection;
+        set
+        {
+            if (SetProperty(ref _selectedSourceConnection, value))
+            {
+                OnPropertyChanged(nameof(AvailableDestinationConnections));
+                EnsureDistinctDestinationSelection();
+            }
+        }
+    }
+
+    public ConnectionProfile? SelectedDestinationConnection
+    {
+        get => _selectedDestinationConnection;
+        set => SetProperty(ref _selectedDestinationConnection, value);
+    }
+
+    public IEnumerable<ConnectionProfile> AvailableDestinationConnections =>
+        Connections.Where(connection => SelectedSourceConnection is null || connection.Id != SelectedSourceConnection.Id);
+
+    public string SourcePath
+    {
+        get => _sourcePath;
+        set => SetProperty(ref _sourcePath, value);
+    }
+
+    public string DestinationPath
+    {
+        get => _destinationPath;
+        set => SetProperty(ref _destinationPath, value);
+    }
+
+    public string BackupNotes
+    {
+        get => _backupNotes;
+        set => SetProperty(ref _backupNotes, value);
+    }
+
+    public DateTime? FilterFromDate
+    {
+        get => _filterFromDate;
+        set => SetProperty(ref _filterFromDate, value);
+    }
+
+    public DateTime? FilterToDate
+    {
+        get => _filterToDate;
+        set => SetProperty(ref _filterToDate, value);
+    }
+
+    public string StatusMessage
+    {
+        get => _statusMessage;
+        set
+        {
+            if (SetProperty(ref _statusMessage, value))
+            {
+                OnPropertyChanged(nameof(HasStatusMessage));
+            }
+        }
+    }
+
+    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
+    public Brush StatusBannerBackground => CreateBrush(_statusIsError ? "#FFF1F1" : "#EEF8F1");
+    public Brush StatusBannerBorder => CreateBrush(_statusIsError ? "#F4CACA" : "#B6E0C2");
+    public Brush StatusBannerForeground => CreateBrush(_statusIsError ? "#B63B48" : "#21784A");
+
+    public string HeaderTitle => _selectedSection switch
+    {
+        UiSection.Connections => "Gestion de Conexiones",
+        UiSection.Logs => "Registro de Eventos",
+        _ => "Dashboard de Backups"
+    };
+
+    public string HeaderSubtitle => _selectedSection switch
+    {
+        UiSection.Connections => "Conexiones configurables para origen y destino.",
+        UiSection.Logs => "Monitoreo y trazabilidad de cada transferencia.",
+        _ => "Estado actual del motor de backup y ejecucion manual."
+    };
+
+    public bool IsDashboardVisible => _selectedSection == UiSection.Dashboard;
+    public bool IsConnectionsVisible => _selectedSection == UiSection.Connections;
+    public bool IsLogsVisible => _selectedSection == UiSection.Logs;
+
+    public Brush DashboardButtonBackground => GetMenuBackground(UiSection.Dashboard);
+    public Brush ConnectionsButtonBackground => GetMenuBackground(UiSection.Connections);
+    public Brush LogsButtonBackground => GetMenuBackground(UiSection.Logs);
+    public Brush DashboardButtonForeground => GetMenuForeground(UiSection.Dashboard);
+    public Brush ConnectionsButtonForeground => GetMenuForeground(UiSection.Connections);
+    public Brush LogsButtonForeground => GetMenuForeground(UiSection.Logs);
+
+    public int SuccessCount => Logs.Count(log => log.Status == "SUCCESS");
+    public int FailedCount => Logs.Count(log => log.Status == "ERROR");
+    public string TotalTransferredText => FormatBytesInGb(Logs.Sum(log => log.BytesTransferred));
+    public string RunBackupButtonText => _isRunningBackup ? "Procesando..." : "Iniciar Proceso de Backup";
+    public bool IsRunningBackup => _isRunningBackup;
+    public bool CanCloseBackupConsole => !_isRunningBackup;
+    public bool IsBackupConsoleOpen
+    {
+        get => _isBackupConsoleOpen;
+        set => SetProperty(ref _isBackupConsoleOpen, value);
+    }
+    public string BackupConsoleStatus
+    {
+        get => _backupConsoleStatus;
+        set => SetProperty(ref _backupConsoleStatus, value);
+    }
+    public string TestConnectionButtonText => _isTestingConnection ? "Probando..." : "Probar conexion";
+
+    public string LogSearchText
+    {
+        get => _logSearchText;
+        set
+        {
+            if (SetProperty(ref _logSearchText, value))
+            {
+                ApplyLogFilter();
+            }
+        }
+    }
+
+    public BackupLogEntry? SelectedLog
+    {
+        get => _selectedLog;
+        set => SetProperty(ref _selectedLog, value);
+    }
+
+    public ConnectionProfile EditableConnection
+    {
+        get => _editableConnection;
+        set
+        {
+            if (SetProperty(ref _editableConnection, value))
+            {
+                AttachEditableConnectionHandlers(value);
+                RaiseConnectionEditorState();
+                OnPropertyChanged(nameof(ConnectionEditorTitle));
+            }
+        }
+    }
+
+    public string ConnectionEditorTitle => EditableConnection.Id == Guid.Empty ? "Nueva Conexion" : "Editor de Conexion";
+    public bool IsConnectionEditorOpen
+    {
+        get => _isConnectionEditorOpen;
+        set => SetProperty(ref _isConnectionEditorOpen, value);
+    }
+    public bool IsLocalConnectionType => EditableConnection.Type == ConnectionType.LocalFolder;
+    public bool IsRemoteConnectionType => EditableConnection.Type is ConnectionType.Ftp or ConnectionType.Sftp;
+    public bool IsSftpConnectionType => EditableConnection.Type == ConnectionType.Sftp;
+    public bool DeleteSourceAfterCopy
+    {
+        get => _deleteSourceAfterCopy;
+        set => SetProperty(ref _deleteSourceAfterCopy, value);
+    }
+
+    private void SetSection(UiSection section)
+    {
+        _selectedSection = section;
+        OnPropertyChanged(nameof(IsDashboardVisible));
+        OnPropertyChanged(nameof(IsConnectionsVisible));
+        OnPropertyChanged(nameof(IsLogsVisible));
+        OnPropertyChanged(nameof(HeaderTitle));
+        OnPropertyChanged(nameof(HeaderSubtitle));
+        RaiseMenuStyles();
+    }
+
+    private void CreateConnection()
+    {
+        EditableConnection = new ConnectionProfile
+        {
+            Id = Guid.Empty
+        };
+        IsConnectionEditorOpen = true;
+    }
+
+    private void EditConnection(object? parameter)
+    {
+        if (parameter is not ConnectionProfile connection)
+        {
+            return;
+        }
+
+        EditableConnection = connection.Clone();
+        IsConnectionEditorOpen = true;
+    }
+
+    private void DeleteConnection(object? parameter)
+    {
+        if (parameter is not ConnectionProfile connection)
+        {
+            return;
+        }
+
+        Connections.Remove(connection);
+        PersistConnections();
+        StatusMessage = $"Conexion eliminada: {connection.Name}";
+        _statusIsError = false;
+        RaiseStatusColors();
+    }
+
+    private void SaveConnection()
+    {
+        if (EditableConnection.Type == ConnectionType.None)
+        {
+            _notifier.PublishError("Debes seleccionar un tipo de conexion.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(EditableConnection.Name) || string.IsNullOrWhiteSpace(EditableConnection.Host))
+        {
+            _notifier.PublishError("Nombre y host/ruta son obligatorios.");
+            return;
+        }
+
+        if (EditableConnection.Type == ConnectionType.LocalFolder)
+        {
+            EditableConnection.Port = 0;
+        }
+        else if (EditableConnection.Port <= 0)
+        {
+            _notifier.PublishError("El puerto es obligatorio para conexiones FTP y SFTP.");
+            return;
+        }
+
+        if (EditableConnection.Id == Guid.Empty)
+        {
+            EditableConnection.Id = Guid.NewGuid();
+            Connections.Add(EditableConnection.Clone());
+        }
+        else
+        {
+            var existing = Connections.FirstOrDefault(item => item.Id == EditableConnection.Id);
+            if (existing is not null)
+            {
+                var index = Connections.IndexOf(existing);
+                Connections[index] = EditableConnection.Clone();
+            }
+            else
+            {
+                Connections.Add(EditableConnection.Clone());
+            }
+        }
+
+        PersistConnections();
+        StatusMessage = $"Conexion guardada: {EditableConnection.Name}";
+        _statusIsError = false;
+        RaiseStatusColors();
+        CloseConnectionEditor();
+    }
+
+    private void CloseConnectionEditor()
+    {
+        EditableConnection = new ConnectionProfile
+        {
+            Id = Guid.Empty
+        };
+        IsConnectionEditorOpen = false;
+    }
+
+    private void SaveSettings()
+    {
+        _settingsStore.Save(Settings);
+        if (!string.IsNullOrWhiteSpace(Settings.LocalBackupRoot))
+        {
+            Directory.CreateDirectory(Settings.LocalBackupRoot);
+        }
+        StatusMessage = "Configuracion guardada.";
+        _statusIsError = false;
+        RaiseStatusColors();
+    }
+
+    private async Task TestConnectionAsync()
+    {
+        var validationMessage = ValidateEditableConnectionForTest();
+        if (validationMessage is not null)
+        {
+            _notifier.PublishError(validationMessage);
+            return;
+        }
+
+        _isTestingConnection = true;
+        OnPropertyChanged(nameof(TestConnectionButtonText));
+        ((AsyncRelayCommand)TestConnectionCommand).RaiseCanExecuteChanged();
+
+        try
+        {
+            var result = await _connectionTester.TestAsync(EditableConnection.Clone());
+            if (result.Success)
+            {
+                _notifier.PublishSuccess(result.Message);
+            }
+            else
+            {
+                _notifier.PublishError(result.Message);
+            }
+        }
+        finally
+        {
+            _isTestingConnection = false;
+            OnPropertyChanged(nameof(TestConnectionButtonText));
+            ((AsyncRelayCommand)TestConnectionCommand).RaiseCanExecuteChanged();
+        }
+    }
+
+    private async Task RunBackupAsync()
+    {
+        if (SelectedSourceConnection is null || SelectedDestinationConnection is null)
+        {
+            _notifier.PublishError("Debes seleccionar origen y destino.");
+            return;
+        }
+
+        if (FilterFromDate.HasValue && FilterToDate.HasValue && FilterFromDate > FilterToDate)
+        {
+            _notifier.PublishError("La fecha inicial no puede ser mayor que la fecha final.");
+            return;
+        }
+
+        if (SelectedSourceConnection.Id != Guid.Empty
+            && SelectedSourceConnection.Id == SelectedDestinationConnection.Id
+            && string.Equals(SourcePath.Trim(), DestinationPath.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            _notifier.PublishError("Origen y destino no pueden ser la misma ruta.");
+            return;
+        }
+
+        _isRunningBackup = true;
+        _backupCancellationSource = new CancellationTokenSource();
+        BackupConsoleEntries.Clear();
+        IsBackupConsoleOpen = true;
+        BackupConsoleStatus = "Iniciando backup...";
+        OnPropertyChanged(nameof(RunBackupButtonText));
+        OnPropertyChanged(nameof(IsRunningBackup));
+        OnPropertyChanged(nameof(CanCloseBackupConsole));
+        ((AsyncRelayCommand)RunBackupCommand).RaiseCanExecuteChanged();
+
+        void AppendConsoleEntry(string fileName, string status)
+        {
+            var entry = new BackupProgressEntry
+            {
+                Timestamp = DateTime.Now,
+                FileName = fileName,
+                Status = status
+            };
+            BackupConsoleEntries.Add(entry);
+            BackupConsoleStatus = $"{entry.TimestampText} - {entry.Status}";
+        }
+
+        AppendConsoleEntry("SISTEMA", "VALIDANDO CONEXION ORIGEN...");
+        var sourceConnectionTest = await _connectionTester.TestAsync(SelectedSourceConnection.Clone());
+        if (!sourceConnectionTest.Success)
+        {
+            AppendConsoleEntry("ORIGEN", $"ERROR: {sourceConnectionTest.Message}");
+            _notifier.PublishError($"La conexion origen no es valida: {sourceConnectionTest.Message}");
+            _backupCancellationSource?.Dispose();
+            _backupCancellationSource = null;
+            _isRunningBackup = false;
+            OnPropertyChanged(nameof(RunBackupButtonText));
+            OnPropertyChanged(nameof(IsRunningBackup));
+            OnPropertyChanged(nameof(CanCloseBackupConsole));
+            ((AsyncRelayCommand)RunBackupCommand).RaiseCanExecuteChanged();
+            return;
+        }
+        AppendConsoleEntry("ORIGEN", "CONEXION OK");
+
+        AppendConsoleEntry("SISTEMA", "VALIDANDO CONEXION DESTINO...");
+        var destinationConnectionTest = await _connectionTester.TestAsync(SelectedDestinationConnection.Clone());
+        if (!destinationConnectionTest.Success)
+        {
+            AppendConsoleEntry("DESTINO", $"ERROR: {destinationConnectionTest.Message}");
+            _notifier.PublishError($"La conexion destino no es valida: {destinationConnectionTest.Message}");
+            _backupCancellationSource?.Dispose();
+            _backupCancellationSource = null;
+            _isRunningBackup = false;
+            OnPropertyChanged(nameof(RunBackupButtonText));
+            OnPropertyChanged(nameof(IsRunningBackup));
+            OnPropertyChanged(nameof(CanCloseBackupConsole));
+            ((AsyncRelayCommand)RunBackupCommand).RaiseCanExecuteChanged();
+            return;
+        }
+        AppendConsoleEntry("DESTINO", "CONEXION OK");
+        AppendConsoleEntry("SISTEMA", "INICIANDO PROCESO DE COPIA...");
+
+        var request = new BackupExecutionRequest
+        {
+            Source = SelectedSourceConnection,
+            Destination = SelectedDestinationConnection,
+            SourcePath = SourcePath,
+            DestinationPath = DestinationPath,
+            OverwriteExisting = true,
+            DeleteSourceAfterCopy = DeleteSourceAfterCopy,
+            FilterFromDate = FilterFromDate,
+            FilterToDate = FilterToDate,
+            Notes = BackupNotes
+        };
+
+        try
+        {
+            var progress = new Progress<BackupProgressEntry>(entry => AppendConsoleEntry(entry.FileName, entry.Status));
+
+            var result = await Task.Run(
+                async () => await _backupOrchestrator.ExecuteAsync(request, progress, _backupCancellationSource.Token),
+                _backupCancellationSource.Token);
+            Logs.Insert(0, result);
+
+            while (Logs.Count > Settings.MaxVisibleLogs)
+            {
+                Logs.RemoveAt(Logs.Count - 1);
+            }
+
+            _logStore.Save(Logs);
+            ApplyLogFilter();
+            UpdateDashboard();
+
+            if (result.Status == "SUCCESS")
+            {
+                BackupConsoleStatus = "Backup completado";
+                _notifier.PublishSuccess($"Backup completado: {result.FilesTransferred} archivo(s).");
+            }
+            else if (result.Status == "CANCELLED")
+            {
+                BackupConsoleStatus = "Backup cancelado por el usuario.";
+                _notifier.PublishError(result.Message);
+            }
+            else
+            {
+                BackupConsoleStatus = $"Backup finalizado con error: {result.Message}";
+                _notifier.PublishError(result.Message);
+            }
+        }
+        finally
+        {
+            _backupCancellationSource?.Dispose();
+            _backupCancellationSource = null;
+            _isRunningBackup = false;
+            OnPropertyChanged(nameof(RunBackupButtonText));
+            OnPropertyChanged(nameof(IsRunningBackup));
+            OnPropertyChanged(nameof(CanCloseBackupConsole));
+            ((AsyncRelayCommand)RunBackupCommand).RaiseCanExecuteChanged();
+        }
+    }
+
+    private void CancelBackup()
+    {
+        if (!_isRunningBackup)
+        {
+            return;
+        }
+
+        _backupCancellationSource?.Cancel();
+        StatusMessage = "Cancelando backup en curso...";
+        _statusIsError = true;
+        RaiseStatusColors();
+    }
+
+    private void PersistConnections()
+    {
+        _connectionStore.Save(Connections);
+        OnPropertyChanged(nameof(Connections));
+        OnPropertyChanged(nameof(AvailableDestinationConnections));
+        if (SelectedSourceConnection is null)
+        {
+            SelectedSourceConnection = Connections.FirstOrDefault();
+        }
+
+        EnsureDistinctDestinationSelection();
+    }
+
+    private void ApplyLogFilter()
+    {
+        FilteredLogs.Clear();
+        foreach (var log in Logs.Where(log =>
+                     string.IsNullOrWhiteSpace(LogSearchText)
+                     || log.Id.Contains(LogSearchText, StringComparison.OrdinalIgnoreCase)
+                     || log.Message.Contains(LogSearchText, StringComparison.OrdinalIgnoreCase)
+                     || log.RouteSummary.Contains(LogSearchText, StringComparison.OrdinalIgnoreCase)
+                     || log.Status.Contains(LogSearchText, StringComparison.OrdinalIgnoreCase)))
+        {
+            FilteredLogs.Add(log);
+        }
+    }
+
+    private void UpdateDashboard()
+    {
+        OnPropertyChanged(nameof(SuccessCount));
+        OnPropertyChanged(nameof(FailedCount));
+        OnPropertyChanged(nameof(TotalTransferredText));
+    }
+
+    private Brush GetMenuBackground(UiSection section) => CreateBrush(_selectedSection == section ? "#E6ECFF" : "#00000000");
+    private Brush GetMenuForeground(UiSection section) => CreateBrush(_selectedSection == section ? "#16213E" : "#D7E1FF");
+
+    private void RaiseMenuStyles()
+    {
+        OnPropertyChanged(nameof(DashboardButtonBackground));
+        OnPropertyChanged(nameof(ConnectionsButtonBackground));
+        OnPropertyChanged(nameof(LogsButtonBackground));
+        OnPropertyChanged(nameof(DashboardButtonForeground));
+        OnPropertyChanged(nameof(ConnectionsButtonForeground));
+        OnPropertyChanged(nameof(LogsButtonForeground));
+    }
+
+    private void RaiseStatusColors()
+    {
+        OnPropertyChanged(nameof(StatusBannerBackground));
+        OnPropertyChanged(nameof(StatusBannerBorder));
+        OnPropertyChanged(nameof(StatusBannerForeground));
+    }
+
+    private void AttachEditableConnectionHandlers(ConnectionProfile connection)
+    {
+        connection.PropertyChanged -= OnEditableConnectionPropertyChanged;
+        connection.PropertyChanged += OnEditableConnectionPropertyChanged;
+    }
+
+    private void OnEditableConnectionPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ConnectionProfile.Type))
+        {
+            if (EditableConnection.Type == ConnectionType.LocalFolder)
+            {
+                EditableConnection.Port = 0;
+                EditableConnection.Username = string.Empty;
+                EditableConnection.Password = string.Empty;
+                EditableConnection.PrivateKeyPath = string.Empty;
+            }
+
+            if (EditableConnection.Type == ConnectionType.Ftp)
+            {
+                EditableConnection.PrivateKeyPath = string.Empty;
+            }
+
+            if (EditableConnection.Type == ConnectionType.None)
+            {
+                EditableConnection.Port = 0;
+                EditableConnection.Username = string.Empty;
+                EditableConnection.Password = string.Empty;
+                EditableConnection.PrivateKeyPath = string.Empty;
+                EditableConnection.BasePath = string.Empty;
+                EditableConnection.Host = string.Empty;
+            }
+
+            RaiseConnectionEditorState();
+        }
+    }
+
+    private void RaiseConnectionEditorState()
+    {
+        OnPropertyChanged(nameof(IsLocalConnectionType));
+        OnPropertyChanged(nameof(IsRemoteConnectionType));
+        OnPropertyChanged(nameof(IsSftpConnectionType));
+    }
+
+    private void EnsureDistinctDestinationSelection()
+    {
+        if (SelectedSourceConnection is null)
+        {
+            if (SelectedDestinationConnection is null)
+            {
+                SelectedDestinationConnection = Connections.FirstOrDefault();
+            }
+
+            return;
+        }
+
+        if (SelectedDestinationConnection is not null && SelectedDestinationConnection.Id != SelectedSourceConnection.Id)
+        {
+            return;
+        }
+
+        SelectedDestinationConnection = AvailableDestinationConnections.FirstOrDefault();
+    }
+
+    private string? ValidateEditableConnectionForTest()
+    {
+        if (EditableConnection.Type == ConnectionType.None)
+        {
+            return "Debes seleccionar un tipo de conexion.";
+        }
+
+        if (string.IsNullOrWhiteSpace(EditableConnection.Name))
+        {
+            return "El nombre de la conexion es obligatorio.";
+        }
+
+        if (EditableConnection.Type == ConnectionType.LocalFolder)
+        {
+            return string.IsNullOrWhiteSpace(EditableConnection.Host)
+                ? "La ruta local es obligatoria."
+                : null;
+        }
+
+        if (string.IsNullOrWhiteSpace(EditableConnection.Host))
+        {
+            return "El host es obligatorio.";
+        }
+
+        if (EditableConnection.Port <= 0)
+        {
+            return "El puerto es obligatorio.";
+        }
+
+        if (string.IsNullOrWhiteSpace(EditableConnection.Username))
+        {
+            return "El usuario es obligatorio.";
+        }
+
+        if (EditableConnection.Type == ConnectionType.Sftp)
+        {
+            if (string.IsNullOrWhiteSpace(EditableConnection.Password) && string.IsNullOrWhiteSpace(EditableConnection.PrivateKeyPath))
+            {
+                return "Debes indicar password o llave privada para SFTP.";
+            }
+
+            return null;
+        }
+
+        return string.IsNullOrWhiteSpace(EditableConnection.Password)
+            ? "El password es obligatorio."
+            : null;
+    }
+
+    private static string FormatBytesInGb(long bytes) => $"{bytes / 1024d / 1024d / 1024d:0.##} GB";
+
+    private static Brush CreateBrush(string value) => (Brush)new BrushConverter().ConvertFromString(value)!;
+}

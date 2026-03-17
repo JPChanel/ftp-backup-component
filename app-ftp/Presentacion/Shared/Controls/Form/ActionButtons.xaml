@@ -1,0 +1,40 @@
+﻿<UserControl x:Class="app_ftp.Presentacion.Shared.Controls.Form.ActionButtons"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <!-- BotÃ³n Cancelar -->
+        <Button x:Name="CancelButton"
+                Style="{StaticResource MaterialDesignOutlinedButton}"
+                Height="38"
+                Padding="24,0"
+                Margin="0,0,12,0"
+                Command="{Binding CancelCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                Visibility="{Binding ShowCancel, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel Orientation="Horizontal">
+                <materialDesign:PackIcon Kind="Close" Width="18" Height="18" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding CancelText, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                           FontSize="13" FontWeight="Medium"/>
+            </StackPanel>
+        </Button>
+
+        <!-- BotÃ³n Primario (Guardar/Aceptar) -->
+        <Button x:Name="PrimaryButton"
+                Style="{StaticResource MaterialDesignRaisedButton}"
+                Foreground="White"
+                Height="38"
+                Padding="24,0"
+                Command="{Binding PrimaryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                IsEnabled="{Binding IsPrimaryEnabled, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                Visibility="{Binding ShowPrimary, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel Orientation="Horizontal">
+                <materialDesign:PackIcon x:Name="PrimaryIcon" 
+                                       Width="18" Height="18" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding PrimaryText, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                           FontSize="13" FontWeight="Medium"/>
+            </StackPanel>
+        </Button>
+    </StackPanel>
+</UserControl>
+
