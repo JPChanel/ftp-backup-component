@@ -137,19 +137,32 @@
                     
                 </StackPanel>
 
-                <materialDesign:Card Grid.Row="2"
-                                     Background="{StaticResource SidebarSurfaceBrush}"
-                                     UniformCornerRadius="18"
-                                     Padding="18"
-                                     materialDesign:ElevationAssist.Elevation="Dp1">
-                    <StackPanel>
-                        <TextBlock Text="Proteccion local" FontWeight="SemiBold" Foreground="White" />
-                        <TextBlock Margin="0,8,0,0"
-                                   Text="Credenciales, configuraciones y logs persisten en AppData con proteccion local."
-                                   Foreground="{StaticResource SidebarMutedBrush}"
-                                   TextWrapping="Wrap" />
+                <StackPanel Grid.Row="2">
+                    <materialDesign:Card Background="{StaticResource SidebarSurfaceBrush}"
+                                         UniformCornerRadius="18"
+                                         Padding="18"
+                                         materialDesign:ElevationAssist.Elevation="Dp1">
+                        <StackPanel>
+                            <TextBlock Text="Proteccion local" FontWeight="SemiBold" Foreground="White" />
+                            <TextBlock Margin="0,8,0,0"
+                                       Text="Credenciales, configuraciones y logs persisten en AppData con proteccion local."
+                                       Foreground="{StaticResource SidebarMutedBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </materialDesign:Card>
+
+                    <StackPanel Margin="0,16,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding AppVersion}" Foreground="{StaticResource SidebarMutedBrush}" VerticalAlignment="Center" FontSize="12" />
+                        <Button Margin="12,0,0,0" 
+                                Style="{StaticResource MaterialDesignOutlinedButton}" 
+                                Padding="8,2" Height="28" FontSize="11"
+                                Content="ACTUALIZAR" 
+                                Foreground="#4CAF50"
+                                BorderBrush="#4CAF50"
+                                Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Command="{Binding InstallUpdateCommand}" />
                     </StackPanel>
-                </materialDesign:Card>
+                </StackPanel>
             </Grid>
         </Border>
 

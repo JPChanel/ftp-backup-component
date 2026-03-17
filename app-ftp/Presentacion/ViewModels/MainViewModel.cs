@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
 using System.Windows.Media;
+using app_ftp.Services.Updates;
 
 namespace app_ftp.Presentacion.ViewModels;
 
@@ -18,6 +19,9 @@ public class MainViewModel : ObservableObject
     private readonly BackupOrchestrator _backupOrchestrator;
     private readonly IConnectionTester _connectionTester;
     private readonly MainThreadNotifier _notifier;
+    private readonly CheckForUpdatesUseCase _checkUpdatesUseCase;
+    private readonly DownloadUpdateUseCase _downloadUpdateUseCase;
+    private readonly InstallUpdateUseCase _installUpdateUseCase;
     private UiSection _selectedSection = UiSection.Dashboard;
     private ConnectionProfile? _selectedSourceConnection;
     private ConnectionProfile? _selectedDestinationConnection;
@@ -39,13 +43,22 @@ public class MainViewModel : ObservableObject
     private bool _isBackupConsoleOpen;
     private string _backupConsoleStatus = string.Empty;
 
+    // Update Properties
+    private string _appVersion = string.Empty;
+    private bool _isUpdateAvailable;
+    private Velopack.UpdateInfo? _availableUpdateInfo;
+    private bool _isDownloadingUpdate;
+
     public MainViewModel(
         ConnectionStore connectionStore,
         SettingsStore settingsStore,
         LogStore logStore,
         BackupOrchestrator backupOrchestrator,
         IConnectionTester connectionTester,
-        MainThreadNotifier notifier)
+        MainThreadNotifier notifier,
+        CheckForUpdatesUseCase checkUpdatesUseCase,
+        DownloadUpdateUseCase downloadUpdateUseCase,
+        InstallUpdateUseCase installUpdateUseCase)
     {
         _connectionStore = connectionStore;
         _settingsStore = settingsStore;
@@ -53,6 +66,9 @@ public class MainViewModel : ObservableObject
         _backupOrchestrator = backupOrchestrator;
         _connectionTester = connectionTester;
         _notifier = notifier;
+        _checkUpdatesUseCase = checkUpdatesUseCase;
+        _downloadUpdateUseCase = downloadUpdateUseCase;
+        _installUpdateUseCase = installUpdateUseCase;
 
         Connections = new ObservableCollection<ConnectionProfile>(_connectionStore.Load().Reverse());
         Settings = _settingsStore.Load();
@@ -79,6 +95,9 @@ public class MainViewModel : ObservableObject
         SaveSettingsCommand = new RelayCommand(SaveSettings);
         RunBackupCommand = new AsyncRelayCommand(RunBackupAsync, () => !_isRunningBackup);
         CancelBackupCommand = new RelayCommand(CancelBackup);
+        
+        CheckForUpdatesCommand = new AsyncRelayCommand(CheckForUpdatesAsync);
+        InstallUpdateCommand = new AsyncRelayCommand(InstallUpdateAsync);
 
         _notifier.StatusPublished += (message, isError) =>
         {
@@ -90,6 +109,9 @@ public class MainViewModel : ObservableObject
         AttachEditableConnectionHandlers(_editableConnection);
         UpdateDashboard();
         SetSection(UiSection.Dashboard);
+        
+        AppVersion = $"v{_checkUpdatesUseCase.GetCurrentVersion()}";
+        _ = CheckForUpdatesAsync();
     }
 
     public ObservableCollection<ConnectionProfile> Connections { get; }
@@ -117,6 +139,8 @@ public class MainViewModel : ObservableObject
     public ICommand RunBackupCommand { get; }
     public ICommand CancelBackupCommand { get; }
     public ICommand CloseBackupConsoleCommand => new RelayCommand(() => IsBackupConsoleOpen = false);
+    public ICommand CheckForUpdatesCommand { get; }
+    public ICommand InstallUpdateCommand { get; }
 
     public ConnectionProfile? SelectedSourceConnection
     {
@@ -275,6 +299,24 @@ public class MainViewModel : ObservableObject
     {
         get => _deleteSourceAfterCopy;
         set => SetProperty(ref _deleteSourceAfterCopy, value);
+    }
+
+    public string AppVersion
+    {
+        get => _appVersion;
+        set => SetProperty(ref _appVersion, value);
+    }
+
+    public bool IsUpdateAvailable
+    {
+        get => _isUpdateAvailable;
+        set => SetProperty(ref _isUpdateAvailable, value);
+    }
+
+    public bool IsDownloadingUpdate
+    {
+        get => _isDownloadingUpdate;
+        set => SetProperty(ref _isDownloadingUpdate, value);
     }
 
     private void SetSection(UiSection section)
@@ -747,4 +789,34 @@ public class MainViewModel : ObservableObject
     private static string FormatBytesInGb(long bytes) => $"{bytes / 1024d / 1024d / 1024d:0.##} GB";
 
     private static Brush CreateBrush(string value) => (Brush)new BrushConverter().ConvertFromString(value)!;
+
+    private async Task CheckForUpdatesAsync()
+    {
+        var updateInfo = await _checkUpdatesUseCase.ExecuteAsync();
+        if (updateInfo != null)
+        {
+            _availableUpdateInfo = updateInfo;
+            IsUpdateAvailable = true;
+        }
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_availableUpdateInfo == null) return;
+        
+        IsDownloadingUpdate = true;
+        bool downloaded = await _downloadUpdateUseCase.ExecuteAsync(_availableUpdateInfo, progress => 
+        {
+            // Optional: Handle progress 
+        });
+
+        if (downloaded)
+        {
+            _installUpdateUseCase.Execute(_availableUpdateInfo);
+        }
+        else 
+        {
+            IsDownloadingUpdate = false;
+        }
+    }
 }
