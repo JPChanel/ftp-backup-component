@@ -4,9 +4,11 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:app_ftp.Config.Converters"
              xmlns:form="clr-namespace:app_ftp.Presentacion.Shared.Controls.Form"
              mc:Ignorable="d">
     <UserControl.Resources>
+        <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />
         <Style x:Key="ConsoleBadgeStyle" TargetType="Border">
             <Setter Property="Padding" Value="10,6" />
             <Setter Property="Margin" Value="0,0,8,8" />
@@ -71,24 +73,44 @@
 
                     <ComboBox SelectedItem="{Binding SelectedSourceConnection}" ItemsSource="{Binding Connections}" DisplayMemberPath="DisplayName"
                               Style="{StaticResource MaterialDesignFilledComboBox}" materialDesign:HintAssist.Hint="Conexion origen" Margin="0,0,0,14" />
+                    <TextBlock Margin="0,-6,0,10"
+                               Foreground="#475569"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               Text="{Binding SourceRootDisplay}" />
                     <form:FormField Label="Ruta origen opcional"
                                     Value="{Binding SourcePath, UpdateSourceTrigger=PropertyChanged}"
                                     Margin="0,0,0,14" />
+                    <TextBlock Margin="0,-6,0,8"
+                               Foreground="#334155"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               Text="{Binding SourceRoutePreview, StringFormat=Ruta normalizada: {0}}" />
                     <TextBlock Margin="0,-6,0,12"
                                Foreground="#64748B"
                                FontSize="11"
                                TextWrapping="Wrap"
-                               Text="Ejemplos: vacio = toda la raiz configurada, REGISTROS_VJ = subcarpeta, REGISTROS_VJ/2026 = carpeta interna." />
+                               Text="Ejemplos: vacio o / = toda la raiz configurada, /REGISTROS_VJ y REGISTROS_VJ se interpretan igual, REGISTROS_VJ/2026 = carpeta interna." />
                     <ComboBox SelectedItem="{Binding SelectedDestinationConnection}" ItemsSource="{Binding AvailableDestinationConnections}" DisplayMemberPath="DisplayName"
                               Style="{StaticResource MaterialDesignFilledComboBox}" materialDesign:HintAssist.Hint="Conexion destino" Margin="0,0,0,14" />
+                    <TextBlock Margin="0,-6,0,10"
+                               Foreground="#475569"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               Text="{Binding DestinationRootDisplay}" />
                     <form:FormField Label="Ruta destino opcional"
                                     Value="{Binding DestinationPath, UpdateSourceTrigger=PropertyChanged}"
                                     Margin="0,0,0,14" />
+                    <TextBlock Margin="0,-6,0,8"
+                               Foreground="#334155"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               Text="{Binding DestinationRoutePreview, StringFormat=Ruta normalizada: {0}}" />
                     <TextBlock Margin="0,-6,0,12"
                                Foreground="#64748B"
                                FontSize="11"
                                TextWrapping="Wrap"
-                               Text="Ejemplos: vacio = raiz del destino, backups = crea o usa esa carpeta, backups/ftp_desa = subcarpeta de destino." />
+                               Text="Ejemplos: vacio o / = raiz del destino, /backups y backups se interpretan igual, backups/ftp_desa = subcarpeta de destino." />
                     <TextBlock Margin="0,0,0,10"
                                Foreground="#64748B"
                                FontSize="10"
@@ -112,18 +134,33 @@
             <materialDesign:Card Grid.Column="1" Padding="24" UniformCornerRadius="18" Background="White" materialDesign:ElevationAssist.Elevation="Dp2">
                 <StackPanel>
                     <TextBlock Text="Filtros y notas" FontSize="22" FontWeight="SemiBold" />
+                    <CheckBox Margin="0,18,0,12"
+                              IsChecked="{Binding UseFilterTime, Mode=TwoWay}"
+                              Content="Especificar hora exacta" />
                     <form:FormDatePicker Label="Desde"
                                          Value="{Binding FilterFromDate, Mode=TwoWay}"
-                                         Margin="0,18,0,14" />
+                                         Margin="0,0,0,14"
+                                         Visibility="{Binding UseFilterTime, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                    <form:FormDateTimePicker Label="Desde"
+                                             Value="{Binding FilterFromDate, Mode=TwoWay}"
+                                             Margin="0,0,0,14"
+                                             Visibility="{Binding UseFilterTime, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <form:FormDatePicker Label="Hasta"
                                          Value="{Binding FilterToDate, Mode=TwoWay}"
-                                         Margin="0,0,0,14" />
+                                         Margin="0,0,0,14"
+                                         Visibility="{Binding UseFilterTime, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                    <form:FormDateTimePicker Label="Hasta"
+                                             Value="{Binding FilterToDate, Mode=TwoWay}"
+                                             Margin="0,0,0,14"
+                                             Visibility="{Binding UseFilterTime, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <form:FormField Label="Notas"
                                     Value="{Binding BackupNotes, UpdateSourceTrigger=PropertyChanged}"
                                     Variant="TextArea"
                                     MinHeight="80"
                                     Margin="0,0,0,14" />
-                    <TextBlock Text="Si no indicas fechas, el backup se ejecuta sin filtro." Foreground="#64748B" TextWrapping="Wrap" />
+                    <TextBlock Text="Si no indicas fechas, el backup se ejecuta sin filtro. Sin hora exacta, 'Desde' inicia a las 00:00 y 'Hasta' termina a las 23:59 del dia elegido."
+                               Foreground="#64748B"
+                               TextWrapping="Wrap" />
                 </StackPanel>
             </materialDesign:Card>
         </Grid>
@@ -228,8 +265,29 @@
                             </Border>
                         </WrapPanel>
 
+                        <Border Grid.Row="2"
+                                Margin="24,36,24,0"
+                                Padding="12,10"
+                                Background="#111827"
+                                BorderBrush="#1E293B"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Visibility="{Binding BackupNotes, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}, FallbackValue=Collapsed}">
+                            <StackPanel>
+                                <TextBlock Text="Notas del backup"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="#CBD5E1" />
+                                <TextBlock Margin="0,6,0,0"
+                                           Text="{Binding BackupNotes}"
+                                           Foreground="#94A3B8"
+                                           FontSize="12"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
                         <Border Grid.Row="3"
-                                Margin="24,0,24,0"
+                                Margin="24,48,24,0"
                                 Background="#020617"
                                 BorderBrush="#1E293B"
                                 BorderThickness="1"

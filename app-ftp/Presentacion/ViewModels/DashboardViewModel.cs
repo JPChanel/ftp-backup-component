@@ -23,9 +23,14 @@ public class DashboardViewModel : SectionViewModelBase
     public ConnectionProfile? SelectedDestinationConnection { get => Parent.SelectedDestinationConnection; set => Parent.SelectedDestinationConnection = value; }
     public string SourcePath { get => Parent.SourcePath; set => Parent.SourcePath = value; }
     public string DestinationPath { get => Parent.DestinationPath; set => Parent.DestinationPath = value; }
+    public string SourceRootDisplay => Parent.SourceRootDisplay;
+    public string DestinationRootDisplay => Parent.DestinationRootDisplay;
+    public string SourceRoutePreview => Parent.SourceRoutePreview;
+    public string DestinationRoutePreview => Parent.DestinationRoutePreview;
     public bool DeleteSourceAfterCopy { get => Parent.DeleteSourceAfterCopy; set => Parent.DeleteSourceAfterCopy = value; }
     public DateTime? FilterFromDate { get => Parent.FilterFromDate; set => Parent.FilterFromDate = value; }
     public DateTime? FilterToDate { get => Parent.FilterToDate; set => Parent.FilterToDate = value; }
+    public bool UseFilterTime { get => Parent.UseFilterTime; set => Parent.UseFilterTime = value; }
     public string BackupNotes { get => Parent.BackupNotes; set => Parent.BackupNotes = value; }
     public ICommand RunBackupCommand => Parent.RunBackupCommand;
     public ICommand CancelBackupCommand => Parent.CancelBackupCommand;

@@ -1,7 +1,6 @@
 using app_ftp.Config;
 using app_ftp.Interface;
 using app_ftp.Services.Models;
-using System.IO;
 using System.Text;
 
 namespace app_ftp.Services;
@@ -26,9 +25,10 @@ public class BackupOrchestrator
         {
             Id = $"#{timestamp:MMddHHmmss}",
             Timestamp = timestamp,
-            Operation = "Sync Backup",
+            Operation = "Backup",
             SourceName = request.Source.Name,
-            DestinationName = request.Destination.Name
+            DestinationName = request.Destination.Name,
+            Notes = request.Notes?.Trim() ?? string.Empty
         };
 
         try
@@ -149,9 +149,15 @@ public class BackupOrchestrator
             throw new InvalidOperationException("Origen y destino no pueden ser la misma ruta.");
         }
 
-        if (!await SourceExistsAsync(sourceEndpoint, request.Source, sourceTarget, request.SourcePath, cancellationToken))
+        var sourceState = await GetSourceStateAsync(sourceEndpoint, request.Source, sourceTarget, request.SourcePath, cancellationToken);
+        if (!sourceState.Exists)
         {
-            throw new InvalidOperationException("La ruta o archivo origen no existe o no es accesible.");
+            throw new InvalidOperationException($"La ruta origen '{FormatSourcePathLabel(request.SourcePath)}' no existe o no es accesible.");
+        }
+
+        if (sourceState.IsEmptyDirectory)
+        {
+            throw new InvalidOperationException($"La carpeta origen '{FormatSourcePathLabel(request.SourcePath)}' existe pero esta vacia.");
         }
 
         if (request.DeleteSourceAfterCopy && request.Source.Type != ConnectionType.LocalFolder && request.Source.Type != ConnectionType.Ftp && request.Source.Type != ConnectionType.Sftp)
@@ -195,22 +201,66 @@ public class BackupOrchestrator
         return [item];
     }
 
-    private static async Task<bool> SourceExistsAsync(IStorageEndpoint endpoint, ConnectionProfile profile, string sourceTarget, string sourcePath, CancellationToken cancellationToken)
+    private static async Task<SourceState> GetSourceStateAsync(IStorageEndpoint endpoint, ConnectionProfile profile, string sourceTarget, string sourcePath, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         if (profile.Type == ConnectionType.LocalFolder)
         {
-            return Directory.Exists(sourceTarget) || File.Exists(sourceTarget);
+            if (File.Exists(sourceTarget))
+            {
+                return SourceState.FileFound();
+            }
+
+            if (Directory.Exists(sourceTarget))
+            {
+                var hasEntries = Directory.EnumerateFileSystemEntries(sourceTarget).Any();
+                return hasEntries ? SourceState.DirectoryFound() : SourceState.EmptyDirectory();
+            }
+
+            return SourceState.NotFound();
         }
 
         if (profile.Type == ConnectionType.Ftp || profile.Type == ConnectionType.Sftp)
         {
-            await endpoint.ListAsync(sourceTarget, true, cancellationToken);
-            return true;
+            var normalizedSourcePath = sourcePath?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(normalizedSourcePath))
+            {
+                await endpoint.ListAsync(sourceTarget, true, cancellationToken);
+                return SourceState.DirectoryFound();
+            }
+
+            if (await endpoint.FileExistsAsync(sourceTarget, cancellationToken))
+            {
+                return SourceState.FileFound();
+            }
+
+            if (!await endpoint.DirectoryExistsAsync(sourceTarget, cancellationToken))
+            {
+                return SourceState.NotFound();
+            }
+
+            var items = await endpoint.ListAsync(sourceTarget, true, cancellationToken);
+            return items.Count > 0 ? SourceState.DirectoryFound() : SourceState.EmptyDirectory();
         }
 
-        return await endpoint.FileExistsAsync(sourceTarget, cancellationToken);
+        return await endpoint.FileExistsAsync(sourceTarget, cancellationToken)
+            ? SourceState.FileFound()
+            : SourceState.NotFound();
+    }
+
+    private static string FormatSourcePathLabel(string sourcePath)
+    {
+        return string.IsNullOrWhiteSpace(sourcePath) ? "/" : $"/{sourcePath.Trim().Trim('/')}";
+    }
+
+    private readonly record struct SourceState(bool Exists, bool IsEmptyDirectory)
+    {
+        public static SourceState NotFound() => new(false, false);
+        public static SourceState FileFound() => new(true, false);
+        public static SourceState DirectoryFound() => new(true, false);
+        public static SourceState EmptyDirectory() => new(true, true);
     }
 
     private static string NormalizePath(ConnectionProfile profile, string path)

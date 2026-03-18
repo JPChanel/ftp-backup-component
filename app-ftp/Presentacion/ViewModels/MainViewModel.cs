@@ -3,11 +3,9 @@ using app_ftp.Interface;
 using app_ftp.Presentacion.Common;
 using app_ftp.Services;
 using app_ftp.Services.Models;
+using app_ftp.Services.Updates;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Windows.Input;
-using System.Windows.Media;
-using app_ftp.Services.Updates;
 
 namespace app_ftp.Presentacion.ViewModels;
 
@@ -42,6 +40,7 @@ public class MainViewModel : ObservableObject
     private bool _isConnectionEditorOpen;
     private bool _isBackupConsoleOpen;
     private string _backupConsoleStatus = string.Empty;
+    private bool _useFilterTime;
 
     // Update Properties
     private string _appVersion = string.Empty;
@@ -70,7 +69,7 @@ public class MainViewModel : ObservableObject
         _downloadUpdateUseCase = downloadUpdateUseCase;
         _installUpdateUseCase = installUpdateUseCase;
 
-        Connections = new ObservableCollection<ConnectionProfile>(_connectionStore.Load().Reverse());
+        Connections = new ObservableCollection<ConnectionProfile>(_connectionStore.Load());
         Settings = _settingsStore.Load();
         Logs = new ObservableCollection<BackupLogEntry>(_logStore.Load().OrderByDescending(x => x.Timestamp));
         FilteredLogs = new ObservableCollection<BackupLogEntry>(Logs);
@@ -95,7 +94,7 @@ public class MainViewModel : ObservableObject
         SaveSettingsCommand = new RelayCommand(SaveSettings);
         RunBackupCommand = new AsyncRelayCommand(RunBackupAsync, () => !_isRunningBackup);
         CancelBackupCommand = new RelayCommand(CancelBackup);
-        
+
         CheckForUpdatesCommand = new AsyncRelayCommand(CheckForUpdatesAsync);
         InstallUpdateCommand = new AsyncRelayCommand(InstallUpdateAsync);
 
@@ -109,7 +108,7 @@ public class MainViewModel : ObservableObject
         AttachEditableConnectionHandlers(_editableConnection);
         UpdateDashboard();
         SetSection(UiSection.Dashboard);
-        
+
         AppVersion = $"v{_checkUpdatesUseCase.GetCurrentVersion()}";
         _ = CheckForUpdatesAsync();
     }
@@ -150,6 +149,8 @@ public class MainViewModel : ObservableObject
             if (SetProperty(ref _selectedSourceConnection, value))
             {
                 OnPropertyChanged(nameof(AvailableDestinationConnections));
+                OnPropertyChanged(nameof(SourceRootDisplay));
+                OnPropertyChanged(nameof(SourceRoutePreview));
                 EnsureDistinctDestinationSelection();
             }
         }
@@ -158,8 +159,16 @@ public class MainViewModel : ObservableObject
     public ConnectionProfile? SelectedDestinationConnection
     {
         get => _selectedDestinationConnection;
-        set => SetProperty(ref _selectedDestinationConnection, value);
+        set
+        {
+            if (SetProperty(ref _selectedDestinationConnection, value))
+            {
+                OnPropertyChanged(nameof(DestinationRootDisplay));
+                OnPropertyChanged(nameof(DestinationRoutePreview));
+            }
+        }
     }
+
 
     public IEnumerable<ConnectionProfile> AvailableDestinationConnections =>
         Connections.Where(connection => SelectedSourceConnection is null || connection.Id != SelectedSourceConnection.Id);
@@ -167,13 +176,25 @@ public class MainViewModel : ObservableObject
     public string SourcePath
     {
         get => _sourcePath;
-        set => SetProperty(ref _sourcePath, value);
+        set
+        {
+            if (SetProperty(ref _sourcePath, value ?? string.Empty))
+            {
+                OnPropertyChanged(nameof(SourceRoutePreview));
+            }
+        }
     }
 
     public string DestinationPath
     {
         get => _destinationPath;
-        set => SetProperty(ref _destinationPath, value);
+        set
+        {
+            if (SetProperty(ref _destinationPath, value ?? string.Empty))
+            {
+                OnPropertyChanged(nameof(DestinationRoutePreview));
+            }
+        }
     }
 
     public string BackupNotes
@@ -295,10 +316,20 @@ public class MainViewModel : ObservableObject
     public bool IsLocalConnectionType => EditableConnection.Type == ConnectionType.LocalFolder;
     public bool IsRemoteConnectionType => EditableConnection.Type is ConnectionType.Ftp or ConnectionType.Sftp;
     public bool IsSftpConnectionType => EditableConnection.Type == ConnectionType.Sftp;
+    public string SourceRootDisplay => BuildConnectionRootDisplay(SelectedSourceConnection);
+    public string DestinationRootDisplay => BuildConnectionRootDisplay(SelectedDestinationConnection);
+    public string SourceRoutePreview => BuildRoutePreview(SourcePath);
+    public string DestinationRoutePreview => BuildRoutePreview(DestinationPath);
     public bool DeleteSourceAfterCopy
     {
         get => _deleteSourceAfterCopy;
         set => SetProperty(ref _deleteSourceAfterCopy, value);
+    }
+
+    public bool UseFilterTime
+    {
+        get => _useFilterTime;
+        set => SetProperty(ref _useFilterTime, value);
     }
 
     public string AppVersion
@@ -476,7 +507,10 @@ public class MainViewModel : ObservableObject
             return;
         }
 
-        if (FilterFromDate.HasValue && FilterToDate.HasValue && FilterFromDate > FilterToDate)
+        var normalizedFromDate = NormalizeFilterFromDate();
+        var normalizedToDate = NormalizeFilterToDate();
+
+        if (normalizedFromDate.HasValue && normalizedToDate.HasValue && normalizedFromDate > normalizedToDate)
         {
             _notifier.PublishError("La fecha inicial no puede ser mayor que la fecha final.");
             return;
@@ -484,7 +518,7 @@ public class MainViewModel : ObservableObject
 
         if (SelectedSourceConnection.Id != Guid.Empty
             && SelectedSourceConnection.Id == SelectedDestinationConnection.Id
-            && string.Equals(SourcePath.Trim(), DestinationPath.Trim(), StringComparison.OrdinalIgnoreCase))
+            && string.Equals(NormalizeUserRoutePath(SourcePath), NormalizeUserRoutePath(DestinationPath), StringComparison.OrdinalIgnoreCase))
         {
             _notifier.PublishError("Origen y destino no pueden ser la misma ruta.");
             return;
@@ -539,12 +573,12 @@ public class MainViewModel : ObservableObject
             {
                 Source = SelectedSourceConnection,
                 Destination = SelectedDestinationConnection,
-                SourcePath = SourcePath,
-                DestinationPath = DestinationPath,
+                SourcePath = NormalizeUserRoutePath(SourcePath),
+                DestinationPath = NormalizeUserRoutePath(DestinationPath),
                 OverwriteExisting = true,
                 DeleteSourceAfterCopy = DeleteSourceAfterCopy,
-                FilterFromDate = FilterFromDate,
-                FilterToDate = FilterToDate,
+                FilterFromDate = normalizedFromDate,
+                FilterToDate = normalizedToDate,
                 Notes = BackupNotes
             };
 
@@ -783,6 +817,71 @@ public class MainViewModel : ObservableObject
             : null;
     }
 
+    private static string NormalizeUserRoutePath(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Trim().Replace('\\', '/');
+
+        while (normalized.Contains("//", StringComparison.Ordinal))
+        {
+            normalized = normalized.Replace("//", "/", StringComparison.Ordinal);
+        }
+
+        normalized = normalized.Trim();
+        normalized = normalized.Trim('/');
+
+        return normalized is "." ? string.Empty : normalized;
+    }
+
+    private static string BuildRoutePreview(string path)
+    {
+        var normalized = NormalizeUserRoutePath(path);
+        return string.IsNullOrWhiteSpace(normalized) ? "/" : $"/{normalized}";
+    }
+
+    private static string BuildConnectionRootDisplay(ConnectionProfile? profile)
+    {
+        if (profile is null)
+        {
+            return "Sin conexion seleccionada.";
+        }
+
+        return profile.Type switch
+        {
+            ConnectionType.LocalFolder => $"Ruta raiz local: {profile.Host}",
+            ConnectionType.Ftp or ConnectionType.Sftp => $"Ruta base remota: {profile.PathLabel}",
+            _ => "Sin ruta base configurada."
+        };
+    }
+
+    private DateTime? NormalizeFilterFromDate()
+    {
+        if (!FilterFromDate.HasValue)
+        {
+            return null;
+        }
+
+        return UseFilterTime
+            ? FilterFromDate.Value
+            : FilterFromDate.Value.Date;
+    }
+
+    private DateTime? NormalizeFilterToDate()
+    {
+        if (!FilterToDate.HasValue)
+        {
+            return null;
+        }
+
+        return UseFilterTime
+            ? FilterToDate.Value
+            : FilterToDate.Value.Date.AddDays(1).AddTicks(-1);
+    }
+
     private static Brush CreateBrush(string value) => (Brush)new BrushConverter().ConvertFromString(value)!;
 
     private async Task CheckForUpdatesAsync()
@@ -798,9 +897,9 @@ public class MainViewModel : ObservableObject
     private async Task InstallUpdateAsync()
     {
         if (_availableUpdateInfo == null) return;
-        
+
         IsDownloadingUpdate = true;
-        bool downloaded = await _downloadUpdateUseCase.ExecuteAsync(_availableUpdateInfo, progress => 
+        bool downloaded = await _downloadUpdateUseCase.ExecuteAsync(_availableUpdateInfo, progress =>
         {
             // Optional: Handle progress 
         });
@@ -809,7 +908,7 @@ public class MainViewModel : ObservableObject
         {
             _installUpdateUseCase.Execute(_availableUpdateInfo);
         }
-        else 
+        else
         {
             IsDownloadingUpdate = false;
         }

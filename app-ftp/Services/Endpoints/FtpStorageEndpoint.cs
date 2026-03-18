@@ -16,6 +16,8 @@ public class FtpStorageEndpoint : IStorageEndpoint
 
     public Task<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default) => _ftpService.FileExists(_profile.ToCredentials(), path, cancellationToken);
 
+    public Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default) => _ftpService.DirectoryExists(_profile.ToCredentials(), path, cancellationToken);
+
     public Task<DateTime?> GetLastModifiedAsync(string path, CancellationToken cancellationToken = default) => _ftpService.GetLastModified(_profile.ToCredentials(), path, cancellationToken);
 
     public Task<byte[]> DownloadBytesAsync(string path, CancellationToken cancellationToken = default) => _ftpService.DownloadFileByte(_profile.ToCredentials(), path, cancellationToken);

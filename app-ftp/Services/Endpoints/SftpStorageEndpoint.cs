@@ -19,6 +19,11 @@ public class SftpStorageEndpoint : IStorageEndpoint
         return _sftpService.FileExists(_profile.ToCredentials(), path, cancellationToken);
     }
 
+    public Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default)
+    {
+        return _sftpService.DirectoryExists(_profile.ToCredentials(), path, cancellationToken);
+    }
+
     public Task<DateTime?> GetLastModifiedAsync(string path, CancellationToken cancellationToken = default) => _sftpService.GetLastModified(_profile.ToCredentials(), path, cancellationToken);
 
     public Task<byte[]> DownloadBytesAsync(string path, CancellationToken cancellationToken = default) => _sftpService.DownloadFileByte(_profile.ToCredentials(), path, cancellationToken);

@@ -147,6 +147,24 @@ public class SftpProtocol
         }
     }
 
+    public bool DirectoryExists(string directoryPath)
+    {
+        try
+        {
+            _errorDescription = string.Empty;
+            if (!Client.Exists(directoryPath))
+            {
+                return false;
+            }
+
+            return Client.GetAttributes(directoryPath).IsDirectory;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("No se pudo validar la carpeta en SFTP: " + ex.Message, ex);
+        }
+    }
+
     public DateTime? GetLastWriteTime(string filePath)
     {
         try

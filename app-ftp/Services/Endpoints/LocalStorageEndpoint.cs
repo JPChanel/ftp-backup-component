@@ -19,6 +19,12 @@ public class LocalStorageEndpoint : IStorageEndpoint
         return Task.FromResult(File.Exists(path));
     }
 
+    public Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(Directory.Exists(path));
+    }
+
     public Task<DateTime?> GetLastModifiedAsync(string path, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

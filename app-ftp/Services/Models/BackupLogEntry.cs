@@ -11,6 +11,7 @@ public class BackupLogEntry
     public string DestinationName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
+    public string Notes { get; set; } = string.Empty;
     public string ExecutionDetails { get; set; } = string.Empty;
     public string? ExecutionDetailsFilePath { get; set; }
     [JsonIgnore]

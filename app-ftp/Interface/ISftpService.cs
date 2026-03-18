@@ -9,6 +9,7 @@ public interface ISftpService
     Task UploadFileAsync(FtpCredentials credentials, string filePath, string remotePath, CancellationToken cancellationToken = default);
     Task UploadBytes(FtpCredentials credentials, byte[] document, string remotePath, CancellationToken cancellationToken = default);
     Task<bool> FileExists(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default);
+    Task<bool> DirectoryExists(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default);
     Task<DateTime?> GetLastModified(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<StorageItem>> ListFiles(FtpCredentials credentials, string remotePath, bool recursive, CancellationToken cancellationToken = default);
     Task DeleteFile(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default);

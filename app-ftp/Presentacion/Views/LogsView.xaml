@@ -4,8 +4,12 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:app_ftp.Config.Converters"
              xmlns:controls="clr-namespace:app_ftp.Presentacion.Shared.Controls.DataTable"
              mc:Ignorable="d">
+    <UserControl.Resources>
+        <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />
+    </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -114,12 +118,30 @@
                                     </Border>
                                 </WrapPanel>
 
-                                <Border Grid.Row="1" Padding="12" CornerRadius="10" Background="#FFFDF5" BorderBrush="#F5E7A1" BorderThickness="1" Margin="0,0,0,12">
-                                    <StackPanel>
-                                        <TextBlock Text="Mensaje" Foreground="#8A6D1C" FontWeight="SemiBold" />
-                                        <TextBlock Margin="0,8,0,0" Text="{Binding SelectedLog.Message, TargetNullValue=Sin mensaje disponible.}" TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </Border>
+                                <StackPanel Grid.Row="1">
+                                    <Border Padding="12" CornerRadius="10" Background="#FFFDF5" BorderBrush="#F5E7A1" BorderThickness="1" Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <TextBlock Text="Mensaje" Foreground="#8A6D1C" FontWeight="SemiBold" />
+                                            <TextBlock Margin="0,8,0,0" Text="{Binding SelectedLog.Message, TargetNullValue=Sin mensaje disponible.}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Padding="12"
+                                            CornerRadius="10"
+                                            Background="#F8FAFC"
+                                            BorderBrush="#CBD5E1"
+                                            BorderThickness="1"
+                                            Margin="0,0,0,12"
+                                            Visibility="{Binding SelectedLog.Notes, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}, FallbackValue=Collapsed}">
+                                        <StackPanel>
+                                            <TextBlock Text="Notas del backup" Foreground="#334155" FontWeight="SemiBold" />
+                                            <TextBlock Margin="0,8,0,0"
+                                                       Text="{Binding SelectedLog.Notes}"
+                                                       Foreground="#475569"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
 
                                 <Border Grid.Row="2" Padding="14" Background="#020617" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="10" MinHeight="100">
                                     <Grid>

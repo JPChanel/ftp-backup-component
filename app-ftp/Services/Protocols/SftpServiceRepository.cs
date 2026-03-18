@@ -34,6 +34,9 @@ public class SftpServiceRepository : ISftpService
     public Task<bool> FileExists(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default) =>
         RunWithProtocolAsync(credentials, cancellationToken, protocol => protocol.FileExists(remotePath));
 
+    public Task<bool> DirectoryExists(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default) =>
+        RunWithProtocolAsync(credentials, cancellationToken, protocol => protocol.DirectoryExists(remotePath));
+
     public Task<DateTime?> GetLastModified(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default) =>
         RunWithProtocolAsync<DateTime?>(credentials, cancellationToken, protocol => protocol.GetLastWriteTime(remotePath));
 

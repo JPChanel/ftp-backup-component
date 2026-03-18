@@ -5,6 +5,7 @@ namespace app_ftp.Interface;
 public interface IStorageEndpoint
 {
     Task<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default);
+    Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default);
     Task<DateTime?> GetLastModifiedAsync(string path, CancellationToken cancellationToken = default);
     Task<byte[]> DownloadBytesAsync(string path, CancellationToken cancellationToken = default);
     Task UploadBytesAsync(string path, byte[] content, bool overwrite, CancellationToken cancellationToken = default);

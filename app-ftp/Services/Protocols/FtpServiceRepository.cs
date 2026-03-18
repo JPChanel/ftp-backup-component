@@ -50,6 +50,9 @@ public class FtpServiceRepository : IFtpService
     public Task<bool> FileExists(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default) =>
         RunWithClientAsync(credentials, cancellationToken, client => client.FileExists(remotePath));
 
+    public Task<bool> DirectoryExists(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default) =>
+        RunWithClientAsync(credentials, cancellationToken, client => client.DirectoryExists(NormalizeRemotePath(remotePath)));
+
     public Task<DateTime?> GetLastModified(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default) =>
         RunWithClientAsync<DateTime?>(credentials, cancellationToken, client =>
         {

@@ -87,6 +87,7 @@ public class LogStore
             DestinationName = log.DestinationName,
             Status = log.Status,
             Message = log.Message,
+            Notes = log.Notes,
             ExecutionDetails = string.Empty,
             ExecutionDetailsFilePath = detailFilePath is null ? null : Path.GetFileName(detailFilePath),
             FilesTransferred = log.FilesTransferred,
