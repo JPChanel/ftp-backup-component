@@ -73,11 +73,12 @@ public class FtpServiceRepository : IFtpService
                 : client.GetListing(root);
 
             return listing
-                .Where(item => item.Type == FtpObjectType.File)
+                .Where(item => item.Type is FtpObjectType.File or FtpObjectType.Directory)
                 .Select(item => new StorageItem
                 {
                     FullPath = item.FullName,
                     RelativePath = GetRelativeRemotePath(root, item.FullName),
+                    IsDirectory = item.Type == FtpObjectType.Directory,
                     Size = item.Size,
                     ModifiedAt = item.Modified
                 })

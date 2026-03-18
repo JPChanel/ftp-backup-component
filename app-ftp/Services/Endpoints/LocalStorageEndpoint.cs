@@ -60,23 +60,80 @@ public class LocalStorageEndpoint : IStorageEndpoint
         return Task.Run<IReadOnlyList<StorageItem>>(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-            var files = Directory.GetFiles(path, "*", searchOption)
-                .Select(file =>
+            var items = new List<StorageItem>();
+
+            foreach (var directory in Directory.GetDirectories(path, "*", SearchOption.TopDirectoryOnly))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                items.Add(new StorageItem
+                {
+                    FullPath = directory,
+                    RelativePath = Path.GetFileName(directory),
+                    IsDirectory = true,
+                    ModifiedAt = Directory.GetLastWriteTime(directory)
+                });
+            }
+
+            foreach (var file in Directory.GetFiles(path, "*", SearchOption.TopDirectoryOnly))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                items.Add(new StorageItem
+                {
+                    FullPath = file,
+                    RelativePath = Path.GetFileName(file).Replace("\\", "/"),
+                    IsDirectory = false,
+                    Size = new FileInfo(file).Length,
+                    ModifiedAt = File.GetLastWriteTime(file)
+                });
+            }
+
+            if (recursive)
+            {
+                foreach (var directory in Directory.GetDirectories(path, "*", SearchOption.TopDirectoryOnly))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    return new StorageItem
+                    foreach (var nestedItem in EnumerateRecursive(directory, cancellationToken))
                     {
-                        FullPath = file,
-                        RelativePath = Path.GetRelativePath(path, file).Replace("\\", "/"),
-                        Size = new FileInfo(file).Length,
-                        ModifiedAt = File.GetLastWriteTime(file)
-                    };
-                })
-                .ToList();
+                        items.Add(nestedItem);
+                    }
+                }
+            }
 
-            return files;
+            return items;
         }, cancellationToken);
+    }
+
+    private static IEnumerable<StorageItem> EnumerateRecursive(string directory, CancellationToken cancellationToken)
+    {
+        foreach (var subdirectory in Directory.GetDirectories(directory, "*", SearchOption.TopDirectoryOnly))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            yield return new StorageItem
+            {
+                FullPath = subdirectory,
+                RelativePath = Path.GetFileName(subdirectory),
+                IsDirectory = true,
+                ModifiedAt = Directory.GetLastWriteTime(subdirectory)
+            };
+
+            foreach (var nested in EnumerateRecursive(subdirectory, cancellationToken))
+            {
+                yield return nested;
+            }
+        }
+
+        foreach (var file in Directory.GetFiles(directory, "*", SearchOption.TopDirectoryOnly))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            yield return new StorageItem
+            {
+                FullPath = file,
+                RelativePath = Path.GetFileName(file),
+                IsDirectory = false,
+                Size = new FileInfo(file).Length,
+                ModifiedAt = File.GetLastWriteTime(file)
+            };
+        }
     }
 
     public Task EnsureDirectoryAsync(string path, CancellationToken cancellationToken = default)

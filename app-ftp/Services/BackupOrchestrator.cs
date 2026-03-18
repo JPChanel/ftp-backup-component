@@ -41,71 +41,8 @@ public class BackupOrchestrator
             Report(progress, detailBuilder, "SISTEMA", "RUTAS INICIALES", sourceTarget, destinationRoot);
             await ValidateRequestAsync(request, sourceEndpoint, destinationEndpoint, sourceTarget, destinationRoot, cancellationToken);
 
-            var sourceItems = await ResolveSourceItemsAsync(sourceEndpoint, request.Source, sourceTarget, request.SourcePath, request.FilterFromDate, request.FilterToDate, cancellationToken);
-            Report(progress, detailBuilder, "SISTEMA", $"Preparados {sourceItems.Count} elemento(s) para backup.");
-
-            foreach (var item in sourceItems)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var destinationFullPath = CombinePath(request.Destination, request.DestinationPath, item.RelativePath);
-
-                try
-                {
-                    var destinationExistedBefore = await destinationEndpoint.FileExistsAsync(destinationFullPath, cancellationToken);
-                    if (destinationExistedBefore)
-                    {
-                        if (!request.OverwriteExisting)
-                        {
-                            log.FilesSkipped++;
-                            Report(progress, detailBuilder, item.RelativePath, "OMITIDO", item.FullPath, destinationFullPath);
-                            continue;
-                        }
-
-                        var destinationModifiedAt = await destinationEndpoint.GetLastModifiedAsync(destinationFullPath, cancellationToken);
-                        if (destinationModifiedAt.HasValue && item.ModifiedAt <= destinationModifiedAt.Value)
-                        {
-                            log.FilesSkipped++;
-                            Report(progress, detailBuilder, item.RelativePath, "OMITIDO", item.FullPath, destinationFullPath);
-                            continue;
-                        }
-                    }
-
-                    var bytes = await sourceEndpoint.DownloadBytesAsync(item.FullPath, cancellationToken);
-                    await destinationEndpoint.EnsureDirectoryAsync(destinationFullPath, cancellationToken);
-                    await destinationEndpoint.UploadBytesAsync(destinationFullPath, bytes, request.OverwriteExisting, cancellationToken);
-                    var destinationExists = await destinationEndpoint.FileExistsAsync(destinationFullPath, cancellationToken);
-                    if (!destinationExists)
-                    {
-                        throw new InvalidOperationException($"No se pudo verificar el archivo copiado en destino: {destinationFullPath}");
-                    }
-
-                    Report(progress, detailBuilder, item.RelativePath, "COPIADO", item.FullPath, destinationFullPath);
-
-                    if (request.DeleteSourceAfterCopy)
-                    {
-                        if (destinationExistedBefore && !request.OverwriteExisting)
-                        {
-                            throw new InvalidOperationException("No es seguro eliminar el origen porque el archivo ya existia en destino y la sobrescritura esta desactivada.");
-                        }
-
-                        await sourceEndpoint.DeleteFileAsync(item.FullPath, cancellationToken);
-                        log.SourceFilesDeleted++;
-                        Report(progress, detailBuilder, item.RelativePath, "ORIGEN ELIMINADO", item.FullPath, destinationFullPath);
-                    }
-
-                    log.FilesTransferred++;
-                    log.BytesTransferred += bytes.LongLength;
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    Report(progress, detailBuilder, item.RelativePath, "ERROR", item.FullPath, destinationFullPath);
-                    throw new InvalidOperationException($"Error procesando '{item.RelativePath}': {ex.Message}", ex);
-                }
-            }
+            Report(progress, detailBuilder, "SISTEMA", "EXPLORANDO DIRECTORIOS...");
+            await ProcessSourceEntriesDfsAsync(request, sourceEndpoint, destinationEndpoint, sourceTarget, progress, detailBuilder, log, cancellationToken);
 
             log.Status = "SUCCESS";
             log.Message = BuildSuccessMessage(request, log);
@@ -168,37 +105,146 @@ public class BackupOrchestrator
         _ = destinationEndpoint;
     }
 
-    private static async Task<IReadOnlyList<StorageItem>> ResolveSourceItemsAsync(
-        IStorageEndpoint endpoint,
-        ConnectionProfile profile,
+    private static async Task ProcessSourceEntriesDfsAsync(
+        BackupExecutionRequest request,
+        IStorageEndpoint sourceEndpoint,
+        IStorageEndpoint destinationEndpoint,
         string sourceTarget,
-        string sourcePath,
-        DateTime? from,
-        DateTime? to,
+        IProgress<BackupProgressEntry>? progress,
+        StringBuilder detailBuilder,
+        BackupLogEntry log,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (profile.Type == ConnectionType.LocalFolder && Directory.Exists(sourceTarget))
+        if (await sourceEndpoint.FileExistsAsync(sourceTarget, cancellationToken))
         {
-            var items = await endpoint.ListAsync(sourceTarget, true, cancellationToken);
-            return items.Where(item => PassesDateFilter(item.ModifiedAt, from, to)).ToList();
+            var singleItem = new StorageItem
+            {
+                FullPath = sourceTarget,
+                RelativePath = Path.GetFileName(sourceTarget.Replace("\\", "/").TrimEnd('/')),
+                IsDirectory = false,
+                ModifiedAt = await sourceEndpoint.GetLastModifiedAsync(sourceTarget, cancellationToken) ?? DateTime.MinValue
+            };
+
+            if (PassesDateFilter(singleItem.ModifiedAt, request.FilterFromDate, request.FilterToDate))
+            {
+                await ProcessFileAsync(request, sourceEndpoint, destinationEndpoint, singleItem, progress, detailBuilder, log, cancellationToken);
+            }
+
+            return;
         }
 
-        if (profile.Type == ConnectionType.Ftp || profile.Type == ConnectionType.Sftp)
+        var stack = new Stack<string>();
+        stack.Push(sourceTarget);
+
+        while (stack.Count > 0)
         {
-            var items = await endpoint.ListAsync(sourceTarget, true, cancellationToken);
-            return items.Where(item => PassesDateFilter(item.ModifiedAt, from, to)).ToList();
+            cancellationToken.ThrowIfCancellationRequested();
+            var currentDirectory = stack.Pop();
+            var entries = await sourceEndpoint.ListAsync(currentDirectory, false, cancellationToken);
+
+            foreach (var directory in entries
+                         .Where(item => item.IsDirectory)
+                         .OrderByDescending(item => item.FullPath, StringComparer.OrdinalIgnoreCase))
+            {
+                stack.Push(directory.FullPath);
+            }
+
+            foreach (var file in entries
+                         .Where(item => !item.IsDirectory)
+                         .OrderBy(item => item.FullPath, StringComparer.OrdinalIgnoreCase))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var relativePath = BuildRelativePath(request.Source, sourceTarget, file.FullPath);
+                var fileToProcess = new StorageItem
+                {
+                    FullPath = file.FullPath,
+                    RelativePath = relativePath,
+                    IsDirectory = false,
+                    Size = file.Size,
+                    ModifiedAt = file.ModifiedAt
+                };
+
+                if (!PassesDateFilter(fileToProcess.ModifiedAt, request.FilterFromDate, request.FilterToDate))
+                {
+                    continue;
+                }
+
+                await ProcessFileAsync(request, sourceEndpoint, destinationEndpoint, fileToProcess, progress, detailBuilder, log, cancellationToken);
+            }
         }
+    }
 
-        var item = new StorageItem
+    private static async Task ProcessFileAsync(
+        BackupExecutionRequest request,
+        IStorageEndpoint sourceEndpoint,
+        IStorageEndpoint destinationEndpoint,
+        StorageItem item,
+        IProgress<BackupProgressEntry>? progress,
+        StringBuilder detailBuilder,
+        BackupLogEntry log,
+        CancellationToken cancellationToken)
+    {
+        var destinationFullPath = CombinePath(request.Destination, request.DestinationPath, item.RelativePath);
+
+        try
         {
-            FullPath = sourceTarget,
-            RelativePath = Path.GetFileName(sourceTarget.Replace("\\", "/").TrimEnd('/')),
-            ModifiedAt = await endpoint.GetLastModifiedAsync(sourceTarget, cancellationToken) ?? DateTime.MinValue
-        };
+            var destinationExistedBefore = await destinationEndpoint.FileExistsAsync(destinationFullPath, cancellationToken);
+            if (destinationExistedBefore)
+            {
+                if (!request.OverwriteExisting)
+                {
+                    log.FilesSkipped++;
+                    Report(progress, detailBuilder, item.RelativePath, "OMITIDO", item.FullPath, destinationFullPath);
+                    return;
+                }
 
-        return [item];
+                var destinationModifiedAt = await destinationEndpoint.GetLastModifiedAsync(destinationFullPath, cancellationToken);
+                if (destinationModifiedAt.HasValue && item.ModifiedAt <= destinationModifiedAt.Value)
+                {
+                    log.FilesSkipped++;
+                    Report(progress, detailBuilder, item.RelativePath, "OMITIDO", item.FullPath, destinationFullPath);
+                    return;
+                }
+            }
+
+            var bytes = await sourceEndpoint.DownloadBytesAsync(item.FullPath, cancellationToken);
+            await destinationEndpoint.EnsureDirectoryAsync(destinationFullPath, cancellationToken);
+            await destinationEndpoint.UploadBytesAsync(destinationFullPath, bytes, request.OverwriteExisting, cancellationToken);
+            var destinationExists = await destinationEndpoint.FileExistsAsync(destinationFullPath, cancellationToken);
+            if (!destinationExists)
+            {
+                throw new InvalidOperationException($"No se pudo verificar el archivo copiado en destino: {destinationFullPath}");
+            }
+
+            Report(progress, detailBuilder, item.RelativePath, "COPIADO", item.FullPath, destinationFullPath);
+
+            if (request.DeleteSourceAfterCopy)
+            {
+                if (destinationExistedBefore && !request.OverwriteExisting)
+                {
+                    throw new InvalidOperationException("No es seguro eliminar el origen porque el archivo ya existia en destino y la sobrescritura esta desactivada.");
+                }
+
+                await sourceEndpoint.DeleteFileAsync(item.FullPath, cancellationToken);
+                log.SourceFilesDeleted++;
+                Report(progress, detailBuilder, item.RelativePath, "ORIGEN ELIMINADO", item.FullPath, destinationFullPath);
+            }
+
+            log.FilesTransferred++;
+            log.BytesTransferred += bytes.LongLength;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Report(progress, detailBuilder, item.RelativePath, "ERROR", item.FullPath, destinationFullPath);
+            throw new InvalidOperationException($"Error procesando '{item.RelativePath}': {ex.Message}", ex);
+        }
     }
 
     private static async Task<SourceState> GetSourceStateAsync(IStorageEndpoint endpoint, ConnectionProfile profile, string sourceTarget, string sourcePath, CancellationToken cancellationToken)
@@ -355,5 +401,34 @@ public class BackupOrchestrator
         var sourcePart = string.IsNullOrWhiteSpace(sourcePath) ? "-" : sourcePath;
         var destinationPart = string.IsNullOrWhiteSpace(destinationPath) ? "-" : destinationPath;
         detailBuilder.AppendLine($"{entry.TimestampText} | {entry.Status} | ARCHIVO: {entry.FileName} | ORIGEN: {sourcePart} | DESTINO: {destinationPart}");
+    }
+
+    private static string BuildRelativePath(ConnectionProfile profile, string rootPath, string fullPath)
+    {
+        if (profile.Type == ConnectionType.LocalFolder)
+        {
+            return Path.GetRelativePath(rootPath, fullPath).Replace("\\", "/");
+        }
+
+        var normalizedRoot = NormalizeRemotePath(rootPath).TrimEnd('/');
+        var normalizedFullPath = NormalizeRemotePath(fullPath);
+
+        if (!normalizedFullPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            return normalizedFullPath.TrimStart('/');
+        }
+
+        return normalizedFullPath[normalizedRoot.Length..].TrimStart('/');
+    }
+
+    private static string NormalizeRemotePath(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "/";
+        }
+
+        var normalized = value.Replace("\\", "/");
+        return normalized.StartsWith('/') ? normalized : $"/{normalized}";
     }
 }

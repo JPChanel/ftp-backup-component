@@ -294,6 +294,14 @@ public class SftpProtocol
 
             if (entry.IsDirectory)
             {
+                items.Add(new StorageItem
+                {
+                    FullPath = entry.FullName,
+                    RelativePath = GetRelativeRemotePath(rootPath, entry.FullName),
+                    IsDirectory = true,
+                    ModifiedAt = entry.Attributes.LastWriteTimeUtc
+                });
+
                 if (recursive)
                 {
                     LoadDirectory(items, rootPath, entry.FullName, true);
@@ -306,6 +314,7 @@ public class SftpProtocol
             {
                 FullPath = entry.FullName,
                 RelativePath = GetRelativeRemotePath(rootPath, entry.FullName),
+                IsDirectory = false,
                 Size = entry.Attributes.Size,
                 ModifiedAt = entry.Attributes.LastWriteTimeUtc
             });
