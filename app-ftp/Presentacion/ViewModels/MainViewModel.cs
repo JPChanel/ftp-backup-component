@@ -47,6 +47,8 @@ public class MainViewModel : ObservableObject
     private bool _isUpdateAvailable;
     private Velopack.UpdateInfo? _availableUpdateInfo;
     private bool _isDownloadingUpdate;
+    private string _testConnectionStatusText = string.Empty;
+    private bool? _lastTestConnectionSucceeded;
 
     public MainViewModel(
         ConnectionStore connectionStore,
@@ -274,6 +276,24 @@ public class MainViewModel : ObservableObject
         set => SetProperty(ref _backupConsoleStatus, value);
     }
     public string TestConnectionButtonText => _isTestingConnection ? "Probando..." : "Probar conexion";
+    public string TestConnectionStatusText
+    {
+        get => _testConnectionStatusText;
+        set => SetProperty(ref _testConnectionStatusText, value);
+    }
+    public Brush TestConnectionButtonBackground => CreateBrush(_lastTestConnectionSucceeded switch
+    {
+        true => "#16A34A",
+        false => "#DC2626",
+        _ => "#FFFFFF"
+    });
+    public Brush TestConnectionButtonForeground => CreateBrush(_lastTestConnectionSucceeded.HasValue ? "#FFFFFF" : "#334155");
+    public Brush TestConnectionStatusForeground => CreateBrush(_lastTestConnectionSucceeded switch
+    {
+        true => "#15803D",
+        false => "#B91C1C",
+        _ => "#64748B"
+    });
 
     public string LogSearchText
     {
@@ -451,6 +471,7 @@ public class MainViewModel : ObservableObject
         {
             Id = Guid.Empty
         };
+        ResetTestConnectionVisualState();
         IsConnectionEditorOpen = false;
     }
 
@@ -471,6 +492,9 @@ public class MainViewModel : ObservableObject
         var validationMessage = ValidateEditableConnectionForTest();
         if (validationMessage is not null)
         {
+            _lastTestConnectionSucceeded = false;
+            TestConnectionStatusText = validationMessage;
+            RaiseTestConnectionVisualState();
             _notifier.PublishError(validationMessage);
             return;
         }
@@ -482,6 +506,9 @@ public class MainViewModel : ObservableObject
         try
         {
             var result = await _connectionTester.TestAsync(EditableConnection.Clone());
+            _lastTestConnectionSucceeded = result.Success;
+            TestConnectionStatusText = result.Message;
+            RaiseTestConnectionVisualState();
             if (result.Success)
             {
                 _notifier.PublishSuccess(result.Message);
@@ -712,6 +739,8 @@ public class MainViewModel : ObservableObject
 
     private void OnEditableConnectionPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        ResetTestConnectionVisualState();
+
         if (e.PropertyName == nameof(ConnectionProfile.Type))
         {
             if (EditableConnection.Type == ConnectionType.LocalFolder)
@@ -746,6 +775,20 @@ public class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsLocalConnectionType));
         OnPropertyChanged(nameof(IsRemoteConnectionType));
         OnPropertyChanged(nameof(IsSftpConnectionType));
+    }
+
+    private void RaiseTestConnectionVisualState()
+    {
+        OnPropertyChanged(nameof(TestConnectionButtonBackground));
+        OnPropertyChanged(nameof(TestConnectionButtonForeground));
+        OnPropertyChanged(nameof(TestConnectionStatusForeground));
+    }
+
+    private void ResetTestConnectionVisualState()
+    {
+        _lastTestConnectionSucceeded = null;
+        TestConnectionStatusText = string.Empty;
+        RaiseTestConnectionVisualState();
     }
 
     private void EnsureDistinctDestinationSelection()

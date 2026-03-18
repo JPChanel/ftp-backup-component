@@ -1,6 +1,7 @@
 using app_ftp.Services.Models;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace app_ftp.Presentacion.ViewModels;
 
@@ -23,4 +24,8 @@ public class ConnectionsViewModel : SectionViewModelBase
     public ICommand CloseConnectionEditorCommand => Parent.CloseConnectionEditorCommand;
     public ICommand TestConnectionCommand => Parent.TestConnectionCommand;
     public string TestConnectionButtonText => Parent.TestConnectionButtonText;
+    public Brush TestConnectionButtonBackground => Parent.TestConnectionButtonBackground;
+    public Brush TestConnectionButtonForeground => Parent.TestConnectionButtonForeground;
+    public Brush TestConnectionStatusForeground => Parent.TestConnectionStatusForeground;
+    public string TestConnectionStatusText => Parent.TestConnectionStatusText;
 }

@@ -189,7 +189,9 @@
                                         MinWidth="170"
                                         Height="44"
                                         Command="{Binding TestConnectionCommand}"
-                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                        Background="{Binding TestConnectionButtonBackground}"
+                                        Foreground="{Binding TestConnectionButtonForeground}"
                                         Content="{Binding TestConnectionButtonText}" />
                                 <Button Margin="0,0,12,8"
                                         MinWidth="170"
@@ -203,6 +205,11 @@
                                         Command="{Binding CloseConnectionEditorCommand}"
                                         Style="{StaticResource MaterialDesignOutlinedButton}"
                                         Content="Cerrar" />
+                                <TextBlock Margin="0,4,0,0"
+                                           Width="520"
+                                           Text="{Binding TestConnectionStatusText}"
+                                           Foreground="{Binding TestConnectionStatusForeground}"
+                                           TextWrapping="Wrap" />
                             </WrapPanel>
                         </Border>
                     </Grid>

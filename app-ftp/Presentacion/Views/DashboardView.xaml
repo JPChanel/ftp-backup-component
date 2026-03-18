@@ -9,6 +9,7 @@
              mc:Ignorable="d">
     <UserControl.Resources>
         <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />
+        <converters:StatusToBrushConverter x:Key="StatusToBrushConverter" />
         <Style x:Key="ConsoleBadgeStyle" TargetType="Border">
             <Setter Property="Padding" Value="10,6" />
             <Setter Property="Margin" Value="0,0,8,8" />
@@ -361,9 +362,12 @@
                                                                VerticalAlignment="Center" />
                                                     <Border Grid.Column="2"
                                                             VerticalAlignment="Center"
-                                                            Style="{StaticResource ConsoleStatusBadgeStyle}">
+                                                            Style="{StaticResource ConsoleStatusBadgeStyle}"
+                                                            Background="{Binding Status, Converter={StaticResource StatusToBrushConverter}, ConverterParameter=Background}"
+                                                            BorderBrush="{Binding Status, Converter={StaticResource StatusToBrushConverter}, ConverterParameter=Border}">
                                                         <TextBlock Text="{Binding Status, Mode=OneWay}"
                                                                    Style="{StaticResource ConsoleStatusTextStyle}"
+                                                                   Foreground="{Binding Status, Converter={StaticResource StatusToBrushConverter}, ConverterParameter=Foreground}"
                                                                    HorizontalAlignment="Center" />
                                                     </Border>
                                                 </Grid>
