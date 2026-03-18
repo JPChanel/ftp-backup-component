@@ -54,35 +54,60 @@ public class SftpServiceRepository : ISftpService
 
     private static async Task<T> RunWithProtocolAsync<T>(FtpCredentials credentials, CancellationToken cancellationToken, Func<SftpProtocol, T> action)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        var attempts = Math.Max(0, credentials.RetryCount) + 1;
+        Exception? lastException = null;
 
-        var operationTask = Task.Run(() =>
+        for (var attempt = 1; attempt <= attempts; attempt++)
         {
-            var sftpProtocol = new SftpProtocol(credentials.Host, credentials.Port, credentials.Username, credentials.Password);
-            using var registration = cancellationToken.Register(() => sftpProtocol.Close());
+            cancellationToken.ThrowIfCancellationRequested();
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Max(1, credentials.TimeoutSeconds)));
+            var effectiveToken = timeoutCts.Token;
+
+            var operationTask = Task.Run(() =>
+            {
+                var sftpProtocol = new SftpProtocol(credentials.Host, credentials.Port, credentials.Username, credentials.Password);
+                using var registration = effectiveToken.Register(() => sftpProtocol.Close());
+
+                try
+                {
+                    effectiveToken.ThrowIfCancellationRequested();
+                    sftpProtocol.Connect(Math.Max(1, credentials.TimeoutSeconds));
+                    effectiveToken.ThrowIfCancellationRequested();
+                    return action(sftpProtocol);
+                }
+                finally
+                {
+                    sftpProtocol.Close();
+                }
+            }, CancellationToken.None);
 
             try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                sftpProtocol.Connect(120);
-                cancellationToken.ThrowIfCancellationRequested();
-                return action(sftpProtocol);
+                return await operationTask.WaitAsync(effectiveToken);
             }
-            finally
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                sftpProtocol.Close();
+                ObserveBackgroundFault(operationTask);
+                throw;
             }
-        }, CancellationToken.None);
+            catch (OperationCanceledException)
+            {
+                ObserveBackgroundFault(operationTask);
+                lastException = new TimeoutException($"La operacion SFTP supero el timeout de {credentials.TimeoutSeconds} segundo(s).");
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+            }
 
-        try
-        {
-            return await operationTask.WaitAsync(cancellationToken);
+            if (attempt < attempts)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(250 * attempt), cancellationToken);
+            }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            ObserveBackgroundFault(operationTask);
-            throw;
-        }
+
+        throw new InvalidOperationException(lastException?.Message ?? "La operacion SFTP fallo sin detalles.", lastException);
     }
 
     private static void ObserveBackgroundFault(Task task)

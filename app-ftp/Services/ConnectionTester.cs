@@ -15,17 +15,7 @@ public class ConnectionTester : IConnectionTester
 
         try
         {
-            var operationTask = Task.Run(() => TestInternal(profile, cancellationToken), CancellationToken.None);
-
-            try
-            {
-                await operationTask.WaitAsync(cancellationToken);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                ObserveBackgroundFault(operationTask);
-                throw;
-            }
+            await RunWithRetriesAsync(profile, cancellationToken);
 
             stopwatch.Stop();
             return new ConnectionTestResult
@@ -161,7 +151,7 @@ public class ConnectionTester : IConnectionTester
 
         try
         {
-            client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(15);
+            client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(Math.Max(1, profile.TimeoutSeconds));
             cancellationToken.ThrowIfCancellationRequested();
             client.Connect();
             cancellationToken.ThrowIfCancellationRequested();
@@ -231,5 +221,48 @@ public class ConnectionTester : IConnectionTester
             CancellationToken.None,
             TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
+    }
+
+    private static async Task RunWithRetriesAsync(ConnectionProfile profile, CancellationToken cancellationToken)
+    {
+        var attempts = Math.Max(0, profile.RetryCount) + 1;
+        Exception? lastException = null;
+
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Max(1, profile.TimeoutSeconds)));
+            var effectiveToken = timeoutCts.Token;
+
+            var operationTask = Task.Run(() => TestInternal(profile, effectiveToken), CancellationToken.None);
+
+            try
+            {
+                await operationTask.WaitAsync(effectiveToken);
+                return;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                ObserveBackgroundFault(operationTask);
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                ObserveBackgroundFault(operationTask);
+                lastException = new TimeoutException($"La prueba de conexion supero el timeout de {profile.TimeoutSeconds} segundo(s).");
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+            }
+
+            if (attempt < attempts)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(250 * attempt), cancellationToken);
+            }
+        }
+
+        throw lastException ?? new InvalidOperationException("La prueba de conexion fallo sin detalles.");
     }
 }

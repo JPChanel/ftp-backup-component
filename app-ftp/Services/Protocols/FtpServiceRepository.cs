@@ -47,8 +47,15 @@ public class FtpServiceRepository : IFtpService
         });
     }
 
-    public Task<bool> FileExists(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default) =>
-        RunWithClientAsync(credentials, cancellationToken, client => client.FileExists(remotePath));
+    public Task<bool> FileExists(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(remotePath))
+        {
+            return Task.FromResult(false);
+        }
+
+        return RunWithClientAsync(credentials, cancellationToken, client => client.FileExists(NormalizeRemotePath(remotePath)));
+    }
 
     public Task<bool> DirectoryExists(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default) =>
         RunWithClientAsync(credentials, cancellationToken, client => client.DirectoryExists(NormalizeRemotePath(remotePath)));
@@ -56,12 +63,19 @@ public class FtpServiceRepository : IFtpService
     public Task<DateTime?> GetLastModified(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default) =>
         RunWithClientAsync<DateTime?>(credentials, cancellationToken, client =>
         {
-            if (!client.FileExists(remotePath))
+            if (string.IsNullOrWhiteSpace(remotePath))
             {
                 return null;
             }
 
-            return client.GetModifiedTime(remotePath);
+            var normalizedPath = NormalizeRemotePath(remotePath);
+
+            if (!client.FileExists(normalizedPath))
+            {
+                return null;
+            }
+
+            return client.GetModifiedTime(normalizedPath);
         });
 
     public Task<IReadOnlyList<StorageItem>> ListFiles(FtpCredentials credentials, string remotePath, bool recursive, CancellationToken cancellationToken = default) =>
@@ -87,11 +101,18 @@ public class FtpServiceRepository : IFtpService
 
     public async Task DeleteFile(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(remotePath))
+        {
+            return;
+        }
+
         await RunWithClientAsync(credentials, cancellationToken, client =>
         {
-            if (client.FileExists(remotePath))
+            var normalizedPath = NormalizeRemotePath(remotePath);
+
+            if (client.FileExists(normalizedPath))
             {
-                client.DeleteFile(remotePath);
+                client.DeleteFile(normalizedPath);
             }
 
             return true;
@@ -109,45 +130,70 @@ public class FtpServiceRepository : IFtpService
 
     private static async Task<T> RunWithClientAsync<T>(FtpCredentials credentials, CancellationToken cancellationToken, Func<FluentFTP.FtpClient, T> action)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        var attempts = Math.Max(0, credentials.RetryCount) + 1;
+        Exception? lastException = null;
 
-        var operationTask = Task.Run(() =>
+        for (var attempt = 1; attempt <= attempts; attempt++)
         {
-            using var client = CreateClient(credentials);
-            using var registration = cancellationToken.Register(() =>
+            cancellationToken.ThrowIfCancellationRequested();
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Max(1, credentials.TimeoutSeconds)));
+            var effectiveToken = timeoutCts.Token;
+
+            var operationTask = Task.Run(() =>
             {
-                try
+                using var client = CreateClient(credentials);
+                using var registration = effectiveToken.Register(() =>
                 {
-                    client.Disconnect();
-                }
-                catch
-                {
-                }
+                    try
+                    {
+                        client.Disconnect();
+                    }
+                    catch
+                    {
+                    }
 
-                try
-                {
-                    client.Dispose();
-                }
-                catch
-                {
-                }
-            });
+                    try
+                    {
+                        client.Dispose();
+                    }
+                    catch
+                    {
+                    }
+                });
 
-            cancellationToken.ThrowIfCancellationRequested();
-            client.AutoConnect();
-            cancellationToken.ThrowIfCancellationRequested();
-            return action(client);
-        }, CancellationToken.None);
+                effectiveToken.ThrowIfCancellationRequested();
+                client.AutoConnect();
+                effectiveToken.ThrowIfCancellationRequested();
+                return action(client);
+            }, CancellationToken.None);
 
-        try
-        {
-            return await operationTask.WaitAsync(cancellationToken);
+            try
+            {
+                return await operationTask.WaitAsync(effectiveToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                ObserveBackgroundFault(operationTask);
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                ObserveBackgroundFault(operationTask);
+                lastException = new TimeoutException($"La operacion FTP supero el timeout de {credentials.TimeoutSeconds} segundo(s).");
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+            }
+
+            if (attempt < attempts)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(250 * attempt), cancellationToken);
+            }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            ObserveBackgroundFault(operationTask);
-            throw;
-        }
+
+        throw new InvalidOperationException(lastException?.Message ?? "La operacion FTP fallo sin detalles.", lastException);
     }
 
     private static void ObserveBackgroundFault(Task task)

@@ -15,6 +15,8 @@ public class ConnectionProfile : ObservableObject
     private string _basePath = string.Empty;
     private string _privateKeyPath = string.Empty;
     private bool _isEnabled = true;
+    private int _timeoutSeconds = 120;
+    private int _retryCount = 1;
 
     public Guid Id { get => _id; set => SetProperty(ref _id, value); }
     public string Name { get => _name; set => SetProperty(ref _name, value); }
@@ -26,6 +28,8 @@ public class ConnectionProfile : ObservableObject
     public string BasePath { get => _basePath; set => SetProperty(ref _basePath, value); }
     public string PrivateKeyPath { get => _privateKeyPath; set => SetProperty(ref _privateKeyPath, value); }
     public bool IsEnabled { get => _isEnabled; set => SetProperty(ref _isEnabled, value); }
+    public int TimeoutSeconds { get => _timeoutSeconds; set => SetProperty(ref _timeoutSeconds, value); }
+    public int RetryCount { get => _retryCount; set => SetProperty(ref _retryCount, value); }
 
     public string DisplayName => $"{Name} ({TypeLabel})";
     public string TypeLabel => Type switch
@@ -51,7 +55,9 @@ public class ConnectionProfile : ObservableObject
             Port = Port,
             Username = Username,
             Password = Password,
-            PrivateKeyPath = PrivateKeyPath
+            PrivateKeyPath = PrivateKeyPath,
+            TimeoutSeconds = TimeoutSeconds,
+            RetryCount = RetryCount
         };
     }
 
@@ -68,7 +74,9 @@ public class ConnectionProfile : ObservableObject
             Password = Password,
             BasePath = BasePath,
             PrivateKeyPath = PrivateKeyPath,
-            IsEnabled = IsEnabled
+            IsEnabled = IsEnabled,
+            TimeoutSeconds = TimeoutSeconds,
+            RetryCount = RetryCount
         };
     }
 }

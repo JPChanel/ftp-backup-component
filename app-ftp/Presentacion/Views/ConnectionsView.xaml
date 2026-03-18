@@ -161,6 +161,7 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="2*" />
@@ -171,6 +172,8 @@
                                     <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,14" Text="{Binding EditableConnection.Port}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Puerto" />
                                     <TextBox Grid.Row="1" Grid.ColumnSpan="2" Margin="0,0,0,14" Text="{Binding EditableConnection.Username}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Usuario" />
                                     <TextBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,0,0,14" Text="{Binding EditableConnection.Password}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Contrasena / token" />
+                                    <TextBox Grid.Row="3" Grid.Column="0" Margin="0,0,12,14" Text="{Binding EditableConnection.TimeoutSeconds}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Timeout (segundos)" />
+                                    <TextBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,14" Text="{Binding EditableConnection.RetryCount}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Reintentos" />
                                 </Grid>
 
                                 <TextBox Text="{Binding EditableConnection.PrivateKeyPath}"

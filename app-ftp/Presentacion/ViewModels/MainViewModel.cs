@@ -385,7 +385,8 @@ public class MainViewModel : ObservableObject
     {
         EditableConnection = new ConnectionProfile
         {
-            Id = Guid.Empty
+            Id = Guid.Empty,
+            Port = 21
         };
         IsConnectionEditorOpen = true;
     }
@@ -439,6 +440,18 @@ public class MainViewModel : ObservableObject
             return;
         }
 
+        if (EditableConnection.TimeoutSeconds <= 0)
+        {
+            _notifier.PublishError("El timeout debe ser mayor a 0 segundos.");
+            return;
+        }
+
+        if (EditableConnection.RetryCount < 0)
+        {
+            _notifier.PublishError("Los reintentos no pueden ser negativos.");
+            return;
+        }
+
         if (EditableConnection.Id == Guid.Empty)
         {
             EditableConnection.Id = Guid.NewGuid();
@@ -469,7 +482,8 @@ public class MainViewModel : ObservableObject
     {
         EditableConnection = new ConnectionProfile
         {
-            Id = Guid.Empty
+            Id = Guid.Empty,
+            Port = 21
         };
         ResetTestConnectionVisualState();
         IsConnectionEditorOpen = false;
@@ -838,6 +852,16 @@ public class MainViewModel : ObservableObject
         if (EditableConnection.Port <= 0)
         {
             return "El puerto es obligatorio.";
+        }
+
+        if (EditableConnection.TimeoutSeconds <= 0)
+        {
+            return "El timeout debe ser mayor a 0 segundos.";
+        }
+
+        if (EditableConnection.RetryCount < 0)
+        {
+            return "Los reintentos no pueden ser negativos.";
         }
 
         if (string.IsNullOrWhiteSpace(EditableConnection.Username))
