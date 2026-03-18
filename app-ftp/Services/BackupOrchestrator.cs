@@ -41,7 +41,7 @@ public class BackupOrchestrator
             Report(progress, detailBuilder, "SISTEMA", "RUTAS INICIALES", sourceTarget, destinationRoot);
             await ValidateRequestAsync(request, sourceEndpoint, destinationEndpoint, sourceTarget, destinationRoot, cancellationToken);
 
-            var sourceItems = await ResolveSourceItemsAsync(sourceEndpoint, request.Source, sourceTarget, request.SourcePath, request.FilterFromDate, request.FilterToDate);
+            var sourceItems = await ResolveSourceItemsAsync(sourceEndpoint, request.Source, sourceTarget, request.SourcePath, request.FilterFromDate, request.FilterToDate, cancellationToken);
             Report(progress, detailBuilder, "SISTEMA", $"Preparados {sourceItems.Count} elemento(s) para backup.");
 
             foreach (var item in sourceItems)
@@ -51,7 +51,7 @@ public class BackupOrchestrator
 
                 try
                 {
-                    var destinationExistedBefore = await destinationEndpoint.FileExistsAsync(destinationFullPath);
+                    var destinationExistedBefore = await destinationEndpoint.FileExistsAsync(destinationFullPath, cancellationToken);
                     if (destinationExistedBefore)
                     {
                         if (!request.OverwriteExisting)
@@ -61,7 +61,7 @@ public class BackupOrchestrator
                             continue;
                         }
 
-                        var destinationModifiedAt = await destinationEndpoint.GetLastModifiedAsync(destinationFullPath);
+                        var destinationModifiedAt = await destinationEndpoint.GetLastModifiedAsync(destinationFullPath, cancellationToken);
                         if (destinationModifiedAt.HasValue && item.ModifiedAt <= destinationModifiedAt.Value)
                         {
                             log.FilesSkipped++;
@@ -70,10 +70,10 @@ public class BackupOrchestrator
                         }
                     }
 
-                    var bytes = await sourceEndpoint.DownloadBytesAsync(item.FullPath);
-                    await destinationEndpoint.EnsureDirectoryAsync(destinationFullPath);
-                    await destinationEndpoint.UploadBytesAsync(destinationFullPath, bytes, request.OverwriteExisting);
-                    var destinationExists = await destinationEndpoint.FileExistsAsync(destinationFullPath);
+                    var bytes = await sourceEndpoint.DownloadBytesAsync(item.FullPath, cancellationToken);
+                    await destinationEndpoint.EnsureDirectoryAsync(destinationFullPath, cancellationToken);
+                    await destinationEndpoint.UploadBytesAsync(destinationFullPath, bytes, request.OverwriteExisting, cancellationToken);
+                    var destinationExists = await destinationEndpoint.FileExistsAsync(destinationFullPath, cancellationToken);
                     if (!destinationExists)
                     {
                         throw new InvalidOperationException($"No se pudo verificar el archivo copiado en destino: {destinationFullPath}");
@@ -88,7 +88,7 @@ public class BackupOrchestrator
                             throw new InvalidOperationException("No es seguro eliminar el origen porque el archivo ya existia en destino y la sobrescritura esta desactivada.");
                         }
 
-                        await sourceEndpoint.DeleteFileAsync(item.FullPath);
+                        await sourceEndpoint.DeleteFileAsync(item.FullPath, cancellationToken);
                         log.SourceFilesDeleted++;
                         Report(progress, detailBuilder, item.RelativePath, "ORIGEN ELIMINADO", item.FullPath, destinationFullPath);
                     }
@@ -149,7 +149,7 @@ public class BackupOrchestrator
             throw new InvalidOperationException("Origen y destino no pueden ser la misma ruta.");
         }
 
-        if (!await SourceExistsAsync(sourceEndpoint, request.Source, sourceTarget, request.SourcePath))
+        if (!await SourceExistsAsync(sourceEndpoint, request.Source, sourceTarget, request.SourcePath, cancellationToken))
         {
             throw new InvalidOperationException("La ruta o archivo origen no existe o no es accesible.");
         }
@@ -168,17 +168,20 @@ public class BackupOrchestrator
         string sourceTarget,
         string sourcePath,
         DateTime? from,
-        DateTime? to)
+        DateTime? to,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (profile.Type == ConnectionType.LocalFolder && Directory.Exists(sourceTarget))
         {
-            var items = await endpoint.ListAsync(sourceTarget, true);
+            var items = await endpoint.ListAsync(sourceTarget, true, cancellationToken);
             return items.Where(item => PassesDateFilter(item.ModifiedAt, from, to)).ToList();
         }
 
         if (profile.Type == ConnectionType.Ftp || profile.Type == ConnectionType.Sftp)
         {
-            var items = await endpoint.ListAsync(sourceTarget, true);
+            var items = await endpoint.ListAsync(sourceTarget, true, cancellationToken);
             return items.Where(item => PassesDateFilter(item.ModifiedAt, from, to)).ToList();
         }
 
@@ -186,14 +189,16 @@ public class BackupOrchestrator
         {
             FullPath = sourceTarget,
             RelativePath = Path.GetFileName(sourceTarget.Replace("\\", "/").TrimEnd('/')),
-            ModifiedAt = await endpoint.GetLastModifiedAsync(sourceTarget) ?? DateTime.MinValue
+            ModifiedAt = await endpoint.GetLastModifiedAsync(sourceTarget, cancellationToken) ?? DateTime.MinValue
         };
 
         return [item];
     }
 
-    private static async Task<bool> SourceExistsAsync(IStorageEndpoint endpoint, ConnectionProfile profile, string sourceTarget, string sourcePath)
+    private static async Task<bool> SourceExistsAsync(IStorageEndpoint endpoint, ConnectionProfile profile, string sourceTarget, string sourcePath, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (profile.Type == ConnectionType.LocalFolder)
         {
             return Directory.Exists(sourceTarget) || File.Exists(sourceTarget);
@@ -201,11 +206,11 @@ public class BackupOrchestrator
 
         if (profile.Type == ConnectionType.Ftp || profile.Type == ConnectionType.Sftp)
         {
-            await endpoint.ListAsync(sourceTarget, true);
+            await endpoint.ListAsync(sourceTarget, true, cancellationToken);
             return true;
         }
 
-        return await endpoint.FileExistsAsync(sourceTarget);
+        return await endpoint.FileExistsAsync(sourceTarget, cancellationToken);
     }
 
     private static string NormalizePath(ConnectionProfile profile, string path)

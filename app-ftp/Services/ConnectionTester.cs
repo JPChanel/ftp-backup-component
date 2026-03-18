@@ -9,13 +9,23 @@ namespace app_ftp.Services;
 
 public class ConnectionTester : IConnectionTester
 {
-    public async Task<ConnectionTestResult> TestAsync(ConnectionProfile profile)
+    public async Task<ConnectionTestResult> TestAsync(ConnectionProfile profile, CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
 
         try
         {
-            await Task.Run(() => TestInternal(profile));
+            var operationTask = Task.Run(() => TestInternal(profile, cancellationToken), CancellationToken.None);
+
+            try
+            {
+                await operationTask.WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                ObserveBackgroundFault(operationTask);
+                throw;
+            }
 
             stopwatch.Stop();
             return new ConnectionTestResult
@@ -24,6 +34,11 @@ public class ConnectionTester : IConnectionTester
                 Message = $"Conexion valida en {stopwatch.ElapsedMilliseconds} ms.",
                 ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
             };
+        }
+        catch (OperationCanceledException)
+        {
+            stopwatch.Stop();
+            throw;
         }
         catch (Exception ex)
         {
@@ -37,26 +52,29 @@ public class ConnectionTester : IConnectionTester
         }
     }
 
-    private static void TestInternal(ConnectionProfile profile)
+    private static void TestInternal(ConnectionProfile profile, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         switch (profile.Type)
         {
             case ConnectionType.LocalFolder:
-                TestLocal(profile);
+                TestLocal(profile, cancellationToken);
                 break;
             case ConnectionType.Ftp:
-                TestFtp(profile);
+                TestFtp(profile, cancellationToken);
                 break;
             case ConnectionType.Sftp:
-                TestSftp(profile);
+                TestSftp(profile, cancellationToken);
                 break;
             default:
                 throw new InvalidOperationException("Debes seleccionar un tipo de conexion.");
         }
     }
 
-    private static void TestLocal(ConnectionProfile profile)
+    private static void TestLocal(ConnectionProfile profile, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(profile.Host))
         {
             throw new InvalidOperationException("La ruta local es obligatoria.");
@@ -68,7 +86,7 @@ public class ConnectionTester : IConnectionTester
         }
     }
 
-    private static void TestFtp(ConnectionProfile profile)
+    private static void TestFtp(ConnectionProfile profile, CancellationToken cancellationToken)
     {
         var host = NormalizeFtpHost(profile.Host);
         using var client = new FluentFTP.FtpClient(host)
@@ -76,10 +94,30 @@ public class ConnectionTester : IConnectionTester
             Port = profile.Port,
             Credentials = new NetworkCredential(profile.Username, profile.Password)
         };
+        using var registration = cancellationToken.Register(() =>
+        {
+            try
+            {
+                client.Disconnect();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                client.Dispose();
+            }
+            catch
+            {
+            }
+        });
 
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             client.AutoConnect();
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (!string.IsNullOrWhiteSpace(profile.BasePath) && !client.DirectoryExists(profile.BasePath))
             {
@@ -96,14 +134,37 @@ public class ConnectionTester : IConnectionTester
         }
     }
 
-    private static void TestSftp(ConnectionProfile profile)
+    private static void TestSftp(ConnectionProfile profile, CancellationToken cancellationToken)
     {
         using var client = CreateSftpClient(profile);
+        using var registration = cancellationToken.Register(() =>
+        {
+            try
+            {
+                if (client.IsConnected)
+                {
+                    client.Disconnect();
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                client.Dispose();
+            }
+            catch
+            {
+            }
+        });
 
         try
         {
             client.ConnectionInfo.Timeout = TimeSpan.FromSeconds(15);
+            cancellationToken.ThrowIfCancellationRequested();
             client.Connect();
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (!string.IsNullOrWhiteSpace(profile.BasePath) && !client.Exists(profile.BasePath))
             {
@@ -161,5 +222,14 @@ public class ConnectionTester : IConnectionTester
         }
 
         return host;
+    }
+
+    private static void ObserveBackgroundFault(Task task)
+    {
+        _ = task.ContinueWith(
+            completedTask => _ = completedTask.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 }

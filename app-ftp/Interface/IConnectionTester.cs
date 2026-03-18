@@ -4,5 +4,5 @@ namespace app_ftp.Interface;
 
 public interface IConnectionTester
 {
-    Task<ConnectionTestResult> TestAsync(ConnectionProfile profile);
+    Task<ConnectionTestResult> TestAsync(ConnectionProfile profile, CancellationToken cancellationToken = default);
 }

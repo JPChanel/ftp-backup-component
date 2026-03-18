@@ -7,106 +7,91 @@ namespace app_ftp.Services.Protocols;
 
 public class FtpServiceRepository : IFtpService
 {
-    public byte[] DownloadFileByte(FtpCredentials credentials, string document_path)
-    {
-        using var client = CreateClient(credentials);
-        client.AutoConnect();
-        client.DownloadBytes(out var bytes, document_path);
-        return bytes;
-    }
-
-    public bool DownloadFilePath(FtpCredentials credentials, string document_path, string path_local)
-    {
-        using var client = CreateClient(credentials);
-        client.AutoConnect();
-        return client.DownloadFile(path_local, document_path) == FtpStatus.Success;
-    }
-
-    public Task UploadBytes(FtpCredentials credentials, byte[] document, string remotePath)
-    {
-        using var client = CreateClient(credentials);
-        client.AutoConnect();
-
-        var remoteDirectory = GetRemoteDirectory(remotePath);
-        if (!string.IsNullOrWhiteSpace(remoteDirectory))
+    public Task<byte[]> DownloadFileByte(FtpCredentials credentials, string document_path, CancellationToken cancellationToken = default) =>
+        RunWithClientAsync(credentials, cancellationToken, client =>
         {
-            client.CreateDirectory(remoteDirectory);
-        }
+            client.DownloadBytes(out var bytes, document_path);
+            return bytes;
+        });
 
-        client.UploadBytes(document, remotePath, FtpRemoteExists.Overwrite, true);
-        return Task.CompletedTask;
-    }
+    public Task<bool> DownloadFilePath(FtpCredentials credentials, string document_path, string path_local, CancellationToken cancellationToken = default) =>
+        RunWithClientAsync(credentials, cancellationToken, client => client.DownloadFile(path_local, document_path) == FtpStatus.Success);
 
-    public Task UploadFileAsync(FtpCredentials credentials, string filePath, string remotePath)
+    public async Task UploadBytes(FtpCredentials credentials, byte[] document, string remotePath, CancellationToken cancellationToken = default)
     {
-        using var client = CreateClient(credentials);
-        client.AutoConnect();
-
-        var remoteDirectory = GetRemoteDirectory(remotePath);
-        if (!string.IsNullOrWhiteSpace(remoteDirectory))
+        await RunWithClientAsync(credentials, cancellationToken, client =>
         {
-            client.CreateDirectory(remoteDirectory);
-        }
-
-        client.UploadFile(filePath, remotePath, FtpRemoteExists.Overwrite, true);
-        return Task.CompletedTask;
-    }
-
-    public Task<bool> FileExists(FtpCredentials credentials, string remotePath)
-    {
-        using var client = CreateClient(credentials);
-        client.AutoConnect();
-        return Task.FromResult(client.FileExists(remotePath));
-    }
-
-    public Task<DateTime?> GetLastModified(FtpCredentials credentials, string remotePath)
-    {
-        using var client = CreateClient(credentials);
-        client.AutoConnect();
-
-        if (!client.FileExists(remotePath))
-        {
-            return Task.FromResult<DateTime?>(null);
-        }
-
-        return Task.FromResult<DateTime?>(client.GetModifiedTime(remotePath));
-    }
-
-    public Task<IReadOnlyList<StorageItem>> ListFiles(FtpCredentials credentials, string remotePath, bool recursive)
-    {
-        using var client = CreateClient(credentials);
-        client.AutoConnect();
-
-        var root = NormalizeRemotePath(remotePath);
-        var listing = recursive
-            ? client.GetListing(root, FtpListOption.Recursive)
-            : client.GetListing(root);
-
-        var items = listing
-            .Where(item => item.Type == FtpObjectType.File)
-            .Select(item => new StorageItem
+            var remoteDirectory = GetRemoteDirectory(remotePath);
+            if (!string.IsNullOrWhiteSpace(remoteDirectory))
             {
-                FullPath = item.FullName,
-                RelativePath = GetRelativeRemotePath(root, item.FullName),
-                Size = item.Size,
-                ModifiedAt = item.Modified
-            })
-            .ToList();
+                client.CreateDirectory(remoteDirectory);
+            }
 
-        return Task.FromResult<IReadOnlyList<StorageItem>>(items);
+            client.UploadBytes(document, remotePath, FtpRemoteExists.Overwrite, true);
+            return true;
+        });
     }
 
-    public Task DeleteFile(FtpCredentials credentials, string remotePath)
+    public async Task UploadFileAsync(FtpCredentials credentials, string filePath, string remotePath, CancellationToken cancellationToken = default)
     {
-        using var client = CreateClient(credentials);
-        client.AutoConnect();
-
-        if (client.FileExists(remotePath))
+        await RunWithClientAsync(credentials, cancellationToken, client =>
         {
-            client.DeleteFile(remotePath);
-        }
+            var remoteDirectory = GetRemoteDirectory(remotePath);
+            if (!string.IsNullOrWhiteSpace(remoteDirectory))
+            {
+                client.CreateDirectory(remoteDirectory);
+            }
 
-        return Task.CompletedTask;
+            client.UploadFile(filePath, remotePath, FtpRemoteExists.Overwrite, true);
+            return true;
+        });
+    }
+
+    public Task<bool> FileExists(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default) =>
+        RunWithClientAsync(credentials, cancellationToken, client => client.FileExists(remotePath));
+
+    public Task<DateTime?> GetLastModified(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default) =>
+        RunWithClientAsync<DateTime?>(credentials, cancellationToken, client =>
+        {
+            if (!client.FileExists(remotePath))
+            {
+                return null;
+            }
+
+            return client.GetModifiedTime(remotePath);
+        });
+
+    public Task<IReadOnlyList<StorageItem>> ListFiles(FtpCredentials credentials, string remotePath, bool recursive, CancellationToken cancellationToken = default) =>
+        RunWithClientAsync<IReadOnlyList<StorageItem>>(credentials, cancellationToken, client =>
+        {
+            var root = NormalizeRemotePath(remotePath);
+            var listing = recursive
+                ? client.GetListing(root, FtpListOption.Recursive)
+                : client.GetListing(root);
+
+            return listing
+                .Where(item => item.Type == FtpObjectType.File)
+                .Select(item => new StorageItem
+                {
+                    FullPath = item.FullName,
+                    RelativePath = GetRelativeRemotePath(root, item.FullName),
+                    Size = item.Size,
+                    ModifiedAt = item.Modified
+                })
+                .ToList();
+        });
+
+    public async Task DeleteFile(FtpCredentials credentials, string remotePath, CancellationToken cancellationToken = default)
+    {
+        await RunWithClientAsync(credentials, cancellationToken, client =>
+        {
+            if (client.FileExists(remotePath))
+            {
+                client.DeleteFile(remotePath);
+            }
+
+            return true;
+        });
     }
 
     private static FluentFTP.FtpClient CreateClient(FtpCredentials credentials)
@@ -116,6 +101,58 @@ public class FtpServiceRepository : IFtpService
         client.Port = credentials.Port;
         client.Credentials = new NetworkCredential(credentials.Username, credentials.Password);
         return client;
+    }
+
+    private static async Task<T> RunWithClientAsync<T>(FtpCredentials credentials, CancellationToken cancellationToken, Func<FluentFTP.FtpClient, T> action)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var operationTask = Task.Run(() =>
+        {
+            using var client = CreateClient(credentials);
+            using var registration = cancellationToken.Register(() =>
+            {
+                try
+                {
+                    client.Disconnect();
+                }
+                catch
+                {
+                }
+
+                try
+                {
+                    client.Dispose();
+                }
+                catch
+                {
+                }
+            });
+
+            cancellationToken.ThrowIfCancellationRequested();
+            client.AutoConnect();
+            cancellationToken.ThrowIfCancellationRequested();
+            return action(client);
+        }, CancellationToken.None);
+
+        try
+        {
+            return await operationTask.WaitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            ObserveBackgroundFault(operationTask);
+            throw;
+        }
+    }
+
+    private static void ObserveBackgroundFault(Task task)
+    {
+        _ = task.ContinueWith(
+            completedTask => _ = completedTask.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 
     private static string NormalizeHost(string host)

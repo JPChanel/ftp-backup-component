@@ -23,11 +23,5 @@ public class BackupLogEntry
 
     public string RouteSummary => $"{SourceName} -> {DestinationName}";
     public string TimestampText => Timestamp.ToString("yyyy-MM-dd HH:mm");
-    public string SizeSummary => BytesTransferred switch
-    {
-        > 1024L * 1024L * 1024L => $"{BytesTransferred / 1024d / 1024d / 1024d:0.##} GB",
-        > 1024L * 1024L => $"{BytesTransferred / 1024d / 1024d:0.##} MB",
-        > 1024L => $"{BytesTransferred / 1024d:0.##} KB",
-        _ => $"{BytesTransferred} B"
-    };
+    public string SizeSummary => ByteSizeFormatter.Format(BytesTransferred);
 }

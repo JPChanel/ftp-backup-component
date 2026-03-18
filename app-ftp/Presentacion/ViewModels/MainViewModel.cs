@@ -238,7 +238,7 @@ public class MainViewModel : ObservableObject
 
     public int SuccessCount => Logs.Count(log => log.Status == "SUCCESS");
     public int FailedCount => Logs.Count(log => log.Status == "ERROR");
-    public string TotalTransferredText => FormatBytesInGb(Logs.Sum(log => log.BytesTransferred));
+    public string TotalTransferredText => ByteSizeFormatter.Format(Logs.Sum(log => log.BytesTransferred));
     public string RunBackupButtonText => _isRunningBackup ? "Procesando..." : "Iniciar Proceso de Backup";
     public bool IsRunningBackup => _isRunningBackup;
     public bool CanCloseBackupConsole => !_isRunningBackup;
@@ -512,61 +512,45 @@ public class MainViewModel : ObservableObject
             BackupConsoleStatus = $"{entry.TimestampText} - {entry.Status}";
         }
 
-        AppendConsoleEntry("SISTEMA", "VALIDANDO CONEXION ORIGEN...");
-        var sourceConnectionTest = await _connectionTester.TestAsync(SelectedSourceConnection.Clone());
-        if (!sourceConnectionTest.Success)
-        {
-            AppendConsoleEntry("ORIGEN", $"ERROR: {sourceConnectionTest.Message}");
-            _notifier.PublishError($"La conexion origen no es valida: {sourceConnectionTest.Message}");
-            _backupCancellationSource?.Dispose();
-            _backupCancellationSource = null;
-            _isRunningBackup = false;
-            OnPropertyChanged(nameof(RunBackupButtonText));
-            OnPropertyChanged(nameof(IsRunningBackup));
-            OnPropertyChanged(nameof(CanCloseBackupConsole));
-            ((AsyncRelayCommand)RunBackupCommand).RaiseCanExecuteChanged();
-            return;
-        }
-        AppendConsoleEntry("ORIGEN", "CONEXION OK");
-
-        AppendConsoleEntry("SISTEMA", "VALIDANDO CONEXION DESTINO...");
-        var destinationConnectionTest = await _connectionTester.TestAsync(SelectedDestinationConnection.Clone());
-        if (!destinationConnectionTest.Success)
-        {
-            AppendConsoleEntry("DESTINO", $"ERROR: {destinationConnectionTest.Message}");
-            _notifier.PublishError($"La conexion destino no es valida: {destinationConnectionTest.Message}");
-            _backupCancellationSource?.Dispose();
-            _backupCancellationSource = null;
-            _isRunningBackup = false;
-            OnPropertyChanged(nameof(RunBackupButtonText));
-            OnPropertyChanged(nameof(IsRunningBackup));
-            OnPropertyChanged(nameof(CanCloseBackupConsole));
-            ((AsyncRelayCommand)RunBackupCommand).RaiseCanExecuteChanged();
-            return;
-        }
-        AppendConsoleEntry("DESTINO", "CONEXION OK");
-        AppendConsoleEntry("SISTEMA", "INICIANDO PROCESO DE COPIA...");
-
-        var request = new BackupExecutionRequest
-        {
-            Source = SelectedSourceConnection,
-            Destination = SelectedDestinationConnection,
-            SourcePath = SourcePath,
-            DestinationPath = DestinationPath,
-            OverwriteExisting = true,
-            DeleteSourceAfterCopy = DeleteSourceAfterCopy,
-            FilterFromDate = FilterFromDate,
-            FilterToDate = FilterToDate,
-            Notes = BackupNotes
-        };
-
         try
         {
+            AppendConsoleEntry("SISTEMA", "VALIDANDO CONEXION ORIGEN...");
+            var sourceConnectionTest = await _connectionTester.TestAsync(SelectedSourceConnection.Clone(), _backupCancellationSource.Token);
+            if (!sourceConnectionTest.Success)
+            {
+                AppendConsoleEntry("ORIGEN", $"ERROR: {sourceConnectionTest.Message}");
+                _notifier.PublishError($"La conexion origen no es valida: {sourceConnectionTest.Message}");
+                return;
+            }
+            AppendConsoleEntry("ORIGEN", "CONEXION OK");
+
+            AppendConsoleEntry("SISTEMA", "VALIDANDO CONEXION DESTINO...");
+            var destinationConnectionTest = await _connectionTester.TestAsync(SelectedDestinationConnection.Clone(), _backupCancellationSource.Token);
+            if (!destinationConnectionTest.Success)
+            {
+                AppendConsoleEntry("DESTINO", $"ERROR: {destinationConnectionTest.Message}");
+                _notifier.PublishError($"La conexion destino no es valida: {destinationConnectionTest.Message}");
+                return;
+            }
+            AppendConsoleEntry("DESTINO", "CONEXION OK");
+            AppendConsoleEntry("SISTEMA", "INICIANDO PROCESO DE COPIA...");
+
+            var request = new BackupExecutionRequest
+            {
+                Source = SelectedSourceConnection,
+                Destination = SelectedDestinationConnection,
+                SourcePath = SourcePath,
+                DestinationPath = DestinationPath,
+                OverwriteExisting = true,
+                DeleteSourceAfterCopy = DeleteSourceAfterCopy,
+                FilterFromDate = FilterFromDate,
+                FilterToDate = FilterToDate,
+                Notes = BackupNotes
+            };
+
             var progress = new Progress<BackupProgressEntry>(entry => AppendConsoleEntry(entry.FileName, entry.Status));
 
-            var result = await Task.Run(
-                async () => await _backupOrchestrator.ExecuteAsync(request, progress, _backupCancellationSource.Token),
-                _backupCancellationSource.Token);
+            var result = await _backupOrchestrator.ExecuteAsync(request, progress, _backupCancellationSource.Token);
             Logs.Insert(0, result);
 
             while (Logs.Count > Settings.MaxVisibleLogs)
@@ -594,6 +578,12 @@ public class MainViewModel : ObservableObject
                 _notifier.PublishError(result.Message);
             }
         }
+        catch (OperationCanceledException)
+        {
+            AppendConsoleEntry("SISTEMA", "CANCELACION SOLICITADA");
+            BackupConsoleStatus = "Backup cancelado por el usuario.";
+            _notifier.PublishError("Operacion cancelada por el usuario.");
+        }
         finally
         {
             _backupCancellationSource?.Dispose();
@@ -608,12 +598,19 @@ public class MainViewModel : ObservableObject
 
     private void CancelBackup()
     {
-        if (!_isRunningBackup)
+        if (!_isRunningBackup || _backupCancellationSource is null || _backupCancellationSource.IsCancellationRequested)
         {
             return;
         }
 
-        _backupCancellationSource?.Cancel();
+        _backupCancellationSource.Cancel();
+        BackupConsoleEntries.Add(new BackupProgressEntry
+        {
+            Timestamp = DateTime.Now,
+            FileName = "SISTEMA",
+            Status = "SOLICITANDO CANCELACION..."
+        });
+        BackupConsoleStatus = "Cancelando backup en curso...";
         StatusMessage = "Cancelando backup en curso...";
         _statusIsError = true;
         RaiseStatusColors();
@@ -785,8 +782,6 @@ public class MainViewModel : ObservableObject
             ? "El password es obligatorio."
             : null;
     }
-
-    private static string FormatBytesInGb(long bytes) => $"{bytes / 1024d / 1024d / 1024d:0.##} GB";
 
     private static Brush CreateBrush(string value) => (Brush)new BrushConverter().ConvertFromString(value)!;
 

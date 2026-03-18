@@ -14,26 +14,30 @@ public class SftpStorageEndpoint : IStorageEndpoint
         _sftpService = sftpService;
     }
 
-    public Task<bool> FileExistsAsync(string path)
+    public Task<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default)
     {
-        return _sftpService.FileExists(_profile.ToCredentials(), path);
+        return _sftpService.FileExists(_profile.ToCredentials(), path, cancellationToken);
     }
 
-    public Task<DateTime?> GetLastModifiedAsync(string path) => _sftpService.GetLastModified(_profile.ToCredentials(), path);
+    public Task<DateTime?> GetLastModifiedAsync(string path, CancellationToken cancellationToken = default) => _sftpService.GetLastModified(_profile.ToCredentials(), path, cancellationToken);
 
-    public Task<byte[]> DownloadBytesAsync(string path) => Task.FromResult(_sftpService.DownloadFileByte(_profile.ToCredentials(), path));
+    public Task<byte[]> DownloadBytesAsync(string path, CancellationToken cancellationToken = default) => _sftpService.DownloadFileByte(_profile.ToCredentials(), path, cancellationToken);
 
-    public Task UploadBytesAsync(string path, byte[] content, bool overwrite)
+    public Task UploadBytesAsync(string path, byte[] content, bool overwrite, CancellationToken cancellationToken = default)
     {
-        return _sftpService.UploadBytes(_profile.ToCredentials(), content, path);
+        return _sftpService.UploadBytes(_profile.ToCredentials(), content, path, cancellationToken);
     }
 
-    public Task<IReadOnlyList<StorageItem>> ListAsync(string path, bool recursive)
+    public Task<IReadOnlyList<StorageItem>> ListAsync(string path, bool recursive, CancellationToken cancellationToken = default)
     {
-        return _sftpService.ListFiles(_profile.ToCredentials(), path, recursive);
+        return _sftpService.ListFiles(_profile.ToCredentials(), path, recursive, cancellationToken);
     }
 
-    public Task EnsureDirectoryAsync(string path) => Task.CompletedTask;
+    public Task EnsureDirectoryAsync(string path, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.CompletedTask;
+    }
 
-    public Task DeleteFileAsync(string path) => _sftpService.DeleteFile(_profile.ToCredentials(), path);
+    public Task DeleteFileAsync(string path, CancellationToken cancellationToken = default) => _sftpService.DeleteFile(_profile.ToCredentials(), path, cancellationToken);
 }
