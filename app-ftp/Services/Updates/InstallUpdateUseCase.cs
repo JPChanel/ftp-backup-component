@@ -1,16 +1,18 @@
 using Velopack;
+using Velopack.Sources;
 
 namespace app_ftp.Services.Updates;
 
 public class InstallUpdateUseCase
 {
     private readonly UpdateManager? _updateManager;
+    private const string UpdateUrl = "https://github.com/JPChanel/ftp-backup-component";
 
     public InstallUpdateUseCase()
     {
         try
         {
-            _updateManager = new UpdateManager("https://github.com/JPChanel/ftp-backup-component");
+            _updateManager = new UpdateManager(new GithubSource(UpdateUrl, null, false));
         }
         catch
         {
