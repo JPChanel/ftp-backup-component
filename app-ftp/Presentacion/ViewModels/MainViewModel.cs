@@ -47,6 +47,8 @@ public class MainViewModel : ObservableObject
     private bool _isUpdateAvailable;
     private Velopack.UpdateInfo? _availableUpdateInfo;
     private bool _isDownloadingUpdate;
+    private int _updateDownloadProgress;
+    private string _updateDownloadStatus = string.Empty;
     private string _testConnectionStatusText = string.Empty;
     private bool? _lastTestConnectionSucceeded;
 
@@ -255,9 +257,27 @@ public class MainViewModel : ObservableObject
     public Brush DashboardButtonBackground => GetMenuBackground(UiSection.Dashboard);
     public Brush ConnectionsButtonBackground => GetMenuBackground(UiSection.Connections);
     public Brush LogsButtonBackground => GetMenuBackground(UiSection.Logs);
+    public Brush DashboardButtonBorderBrush => GetMenuBorderBrush(UiSection.Dashboard);
+    public Brush ConnectionsButtonBorderBrush => GetMenuBorderBrush(UiSection.Connections);
+    public Brush LogsButtonBorderBrush => GetMenuBorderBrush(UiSection.Logs);
+    public bool IsDashboardSelected => _selectedSection == UiSection.Dashboard;
+    public bool IsConnectionsSelected => _selectedSection == UiSection.Connections;
+    public bool IsLogsSelected => _selectedSection == UiSection.Logs;
     public Brush DashboardButtonForeground => GetMenuForeground(UiSection.Dashboard);
     public Brush ConnectionsButtonForeground => GetMenuForeground(UiSection.Connections);
     public Brush LogsButtonForeground => GetMenuForeground(UiSection.Logs);
+    public Brush DashboardButtonAccentBrush => GetMenuAccentBrush(UiSection.Dashboard);
+    public Brush ConnectionsButtonAccentBrush => GetMenuAccentBrush(UiSection.Connections);
+    public Brush LogsButtonAccentBrush => GetMenuAccentBrush(UiSection.Logs);
+    public double DashboardButtonAccentWidth => GetMenuAccentWidth(UiSection.Dashboard);
+    public double ConnectionsButtonAccentWidth => GetMenuAccentWidth(UiSection.Connections);
+    public double LogsButtonAccentWidth => GetMenuAccentWidth(UiSection.Logs);
+    public Brush DashboardIconBackground => GetMenuIconBackground(UiSection.Dashboard);
+    public Brush ConnectionsIconBackground => GetMenuIconBackground(UiSection.Connections);
+    public Brush LogsIconBackground => GetMenuIconBackground(UiSection.Logs);
+    public Brush DashboardIconBorderBrush => GetMenuIconBorderBrush(UiSection.Dashboard);
+    public Brush ConnectionsIconBorderBrush => GetMenuIconBorderBrush(UiSection.Connections);
+    public Brush LogsIconBorderBrush => GetMenuIconBorderBrush(UiSection.Logs);
 
     public int SuccessCount => Logs.Count(log => log.Status == "SUCCESS");
     public int FailedCount => Logs.Count(log => log.Status == "ERROR");
@@ -367,8 +387,49 @@ public class MainViewModel : ObservableObject
     public bool IsDownloadingUpdate
     {
         get => _isDownloadingUpdate;
-        set => SetProperty(ref _isDownloadingUpdate, value);
+        set
+        {
+            if (SetProperty(ref _isDownloadingUpdate, value))
+            {
+                OnPropertyChanged(nameof(InstallUpdateButtonText));
+                OnPropertyChanged(nameof(IsUpdateProgressVisible));
+                OnPropertyChanged(nameof(IsUpdateProgressIndeterminate));
+            }
+        }
     }
+
+    public int UpdateDownloadProgress
+    {
+        get => _updateDownloadProgress;
+        set
+        {
+            if (SetProperty(ref _updateDownloadProgress, value))
+            {
+                OnPropertyChanged(nameof(UpdateDownloadProgressText));
+                OnPropertyChanged(nameof(IsUpdateProgressVisible));
+                OnPropertyChanged(nameof(IsUpdateProgressIndeterminate));
+            }
+        }
+    }
+
+    public string UpdateDownloadStatus
+    {
+        get => _updateDownloadStatus;
+        set
+        {
+            if (SetProperty(ref _updateDownloadStatus, value))
+            {
+                OnPropertyChanged(nameof(HasUpdateStatus));
+                OnPropertyChanged(nameof(IsUpdateProgressVisible));
+            }
+        }
+    }
+
+    public string InstallUpdateButtonText => IsDownloadingUpdate ? "DESCARGANDO..." : "ACTUALIZAR";
+    public string UpdateDownloadProgressText => UpdateDownloadProgress <= 0 && !IsDownloadingUpdate ? string.Empty : $"{UpdateDownloadProgress}%";
+    public bool HasUpdateStatus => !string.IsNullOrWhiteSpace(UpdateDownloadStatus);
+    public bool IsUpdateProgressVisible => IsDownloadingUpdate || HasUpdateStatus || UpdateDownloadProgress > 0;
+    public bool IsUpdateProgressIndeterminate => IsDownloadingUpdate && UpdateDownloadProgress <= 0;
 
     private void SetSection(UiSection section)
     {
@@ -725,17 +786,40 @@ public class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(TotalTransferredText));
     }
 
-    private Brush GetMenuBackground(UiSection section) => CreateBrush(_selectedSection == section ? "#E6ECFF" : "#00000000");
-    private Brush GetMenuForeground(UiSection section) => CreateBrush(_selectedSection == section ? "#16213E" : "#D7E1FF");
+    private Brush GetMenuBackground(UiSection section) => CreateBrush(_selectedSection == section ? "#3949AB" : "#F8FAFF");
+    private Brush GetMenuBorderBrush(UiSection section) => CreateBrush(_selectedSection == section ? "#31409A" : "#E6ECFF");
+    private Brush GetMenuForeground(UiSection section) => CreateBrush(_selectedSection == section ? "#FFFFFF" : "#334155");
+    private Brush GetMenuAccentBrush(UiSection section) => CreateBrush(_selectedSection == section ? "#C7D2FE" : "#00000000");
+    private double GetMenuAccentWidth(UiSection section) => _selectedSection == section ? 4 : 0;
+    private Brush GetMenuIconBackground(UiSection section) => CreateBrush(_selectedSection == section ? "#31409A" : "#FFFFFF");
+    private Brush GetMenuIconBorderBrush(UiSection section) => CreateBrush(_selectedSection == section ? "#5C6BC0" : "#D8E1FF");
 
     private void RaiseMenuStyles()
     {
         OnPropertyChanged(nameof(DashboardButtonBackground));
         OnPropertyChanged(nameof(ConnectionsButtonBackground));
         OnPropertyChanged(nameof(LogsButtonBackground));
+        OnPropertyChanged(nameof(DashboardButtonBorderBrush));
+        OnPropertyChanged(nameof(ConnectionsButtonBorderBrush));
+        OnPropertyChanged(nameof(LogsButtonBorderBrush));
+        OnPropertyChanged(nameof(IsDashboardSelected));
+        OnPropertyChanged(nameof(IsConnectionsSelected));
+        OnPropertyChanged(nameof(IsLogsSelected));
         OnPropertyChanged(nameof(DashboardButtonForeground));
         OnPropertyChanged(nameof(ConnectionsButtonForeground));
         OnPropertyChanged(nameof(LogsButtonForeground));
+        OnPropertyChanged(nameof(DashboardButtonAccentBrush));
+        OnPropertyChanged(nameof(ConnectionsButtonAccentBrush));
+        OnPropertyChanged(nameof(LogsButtonAccentBrush));
+        OnPropertyChanged(nameof(DashboardButtonAccentWidth));
+        OnPropertyChanged(nameof(ConnectionsButtonAccentWidth));
+        OnPropertyChanged(nameof(LogsButtonAccentWidth));
+        OnPropertyChanged(nameof(DashboardIconBackground));
+        OnPropertyChanged(nameof(ConnectionsIconBackground));
+        OnPropertyChanged(nameof(LogsIconBackground));
+        OnPropertyChanged(nameof(DashboardIconBorderBrush));
+        OnPropertyChanged(nameof(ConnectionsIconBorderBrush));
+        OnPropertyChanged(nameof(LogsIconBorderBrush));
     }
 
     private void RaiseStatusColors()
@@ -966,18 +1050,49 @@ public class MainViewModel : ObservableObject
         if (_availableUpdateInfo == null) return;
 
         IsDownloadingUpdate = true;
+        UpdateDownloadProgress = 0;
+        UpdateDownloadStatus = "Preparando descarga de la actualizacion...";
+
         bool downloaded = await _downloadUpdateUseCase.ExecuteAsync(_availableUpdateInfo, progress =>
         {
-            // Optional: Handle progress 
+            PublishUpdateProgress(progress);
         });
 
         if (downloaded)
         {
+            UpdateDownloadProgress = 100;
+            UpdateDownloadStatus = "Descarga completa. Instalando actualizacion...";
             _installUpdateUseCase.Execute(_availableUpdateInfo);
+            IsDownloadingUpdate = false;
         }
         else
         {
+            UpdateDownloadStatus = "No se pudo descargar la actualizacion. Revisa tu internet e intentalo otra vez.";
             IsDownloadingUpdate = false;
+            _notifier.PublishError(UpdateDownloadStatus);
         }
+    }
+
+    private void PublishUpdateProgress(int progress)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher == null || dispatcher.CheckAccess())
+        {
+            ApplyUpdateProgress(progress);
+            return;
+        }
+
+        dispatcher.Invoke(() => ApplyUpdateProgress(progress));
+    }
+
+    private void ApplyUpdateProgress(int progress)
+    {
+        UpdateDownloadProgress = Math.Clamp(progress, 0, 100);
+        UpdateDownloadStatus = UpdateDownloadProgress switch
+        {
+            <= 0 => "Conectando con el servidor de actualizaciones...",
+            >= 100 => "Descarga finalizada. Preparando instalacion...",
+            _ => $"Descargando actualizacion... {UpdateDownloadProgress}%"
+        };
     }
 }

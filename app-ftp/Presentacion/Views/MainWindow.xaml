@@ -16,32 +16,59 @@
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <Style x:Key="NavButtonStyle" TargetType="Button">
-            <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="Margin" Value="0,0,0,12" />
             <Setter Property="Padding" Value="16,14" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="MinHeight" Value="52" />
+            <Setter Property="MinHeight" Value="56" />
             <Setter Property="Foreground" Value="{StaticResource SidebarSurfaceBrush}" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="#F8FAFF" />
+            <Setter Property="BorderBrush" Value="#E6ECFF" />
+            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="NavBorder"
                                 Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="8"
                                 SnapsToDevicePixels="True">
-                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            <ContentPresenter x:Name="NavContent"
+                                              Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="NavBorder" Property="Background" Value="#F3F6FF" />
+                                <Setter TargetName="NavBorder" Property="Background" Value="#EEF3FF" />
+                                <Setter TargetName="NavBorder" Property="BorderBrush" Value="#C7D2FE" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="NavBorder" Property="Opacity" Value="0.9" />
+                                <Setter TargetName="NavBorder" Property="Background" Value="#E0E7FF" />
+                                <Setter TargetName="NavBorder" Property="BorderBrush" Value="#A5B4FC" />
                             </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="Tag" Value="True" />
+                                    <Condition Property="IsMouseOver" Value="True" />
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="NavBorder" Property="Background" Value="#23358F" />
+                                <Setter TargetName="NavBorder" Property="BorderBrush" Value="#8FA2FF" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                                <Setter TargetName="NavContent" Property="Opacity" Value="1" />
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="Tag" Value="True" />
+                                    <Condition Property="IsPressed" Value="True" />
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="NavBorder" Property="Background" Value="#1C2B75" />
+                                <Setter TargetName="NavBorder" Property="BorderBrush" Value="#A8B6FF" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                                <Setter TargetName="NavContent" Property="Opacity" Value="1" />
+                            </MultiTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -59,6 +86,19 @@
         <Style x:Key="SectionCardStyle" TargetType="materialDesign:Card" BasedOn="{StaticResource MetricCardStyle}">
             <Setter Property="Margin" Value="0" />
             <Setter Property="Padding" Value="24" />
+        </Style>
+
+        <Style x:Key="NavLabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=Button}}" Value="True" />
+                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Foreground" Value="#16306B" />
+                </MultiDataTrigger>
+            </Style.Triggers>
         </Style>
 
     </Window.Resources>
@@ -95,44 +135,124 @@
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Margin="0,34,0,0">
+                    <TextBlock Margin="4,0,0,12"
+                               Text="NAVEGACION"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource SidebarMutedBrush}" />
                     <Button Style="{StaticResource NavButtonStyle}"
                             Command="{Binding ShowDashboardCommand}"
+                            Tag="{Binding IsDashboardSelected}"
                             Background="{Binding DashboardButtonBackground}"
+                            BorderBrush="{Binding DashboardButtonBorderBrush}"
                             Foreground="{Binding DashboardButtonForeground}">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ViewDashboardOutline"
-                                                     Margin="0,0,10,0"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                            <TextBlock Text="Dashboard / Ejecutar"
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="{Binding DashboardButtonAccentWidth}"
+                                    Margin="0,2,12,2"
+                                    Background="{Binding DashboardButtonAccentBrush}"
+                                    CornerRadius="3" />
+                            <Border Grid.Column="1"
+                                    Width="32"
+                                    Height="32"
+                                    CornerRadius="10"
+                                    Background="{Binding DashboardIconBackground}"
+                                    BorderBrush="{Binding DashboardIconBorderBrush}"
+                                    BorderThickness="1">
+                                <materialDesign:PackIcon Kind="ViewDashboardOutline"
+                                                         Width="18"
+                                                         Height="18"
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            </Border>
+                            <TextBlock Text="Ejecutar"
+                                       Grid.Column="2"
+                                       Margin="12,0,0,0"
+                                       Style="{StaticResource NavLabelStyle}"
                                        VerticalAlignment="Center"
-                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                        </StackPanel>
+                                       FontWeight="SemiBold" />
+                        </Grid>
                     </Button>
                     <Button Style="{StaticResource NavButtonStyle}"
                             Command="{Binding ShowConnectionsCommand}"
+                            Tag="{Binding IsConnectionsSelected}"
                             Background="{Binding ConnectionsButtonBackground}"
+                            BorderBrush="{Binding ConnectionsButtonBorderBrush}"
                             Foreground="{Binding ConnectionsButtonForeground}">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="LanConnect"
-                                                     Margin="0,0,10,0"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                            <TextBlock Text="Conexiones A / B"
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="{Binding ConnectionsButtonAccentWidth}"
+                                    Margin="0,2,12,2"
+                                    Background="{Binding ConnectionsButtonAccentBrush}"
+                                    CornerRadius="3" />
+                            <Border Grid.Column="1"
+                                    Width="32"
+                                    Height="32"
+                                    CornerRadius="10"
+                                    Background="{Binding ConnectionsIconBackground}"
+                                    BorderBrush="{Binding ConnectionsIconBorderBrush}"
+                                    BorderThickness="1">
+                                <materialDesign:PackIcon Kind="LanConnect"
+                                                         Width="18"
+                                                         Height="18"
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            </Border>
+                            <TextBlock Text="Conexiones"
+                                       Grid.Column="2"
+                                       Margin="12,0,0,0"
+                                       Style="{StaticResource NavLabelStyle}"
                                        VerticalAlignment="Center"
-                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                        </StackPanel>
+                                       FontWeight="SemiBold" />
+                        </Grid>
                     </Button>
                     <Button Style="{StaticResource NavButtonStyle}"
                             Command="{Binding ShowLogsCommand}"
+                            Tag="{Binding IsLogsSelected}"
                             Background="{Binding LogsButtonBackground}"
+                            BorderBrush="{Binding LogsButtonBorderBrush}"
                             Foreground="{Binding LogsButtonForeground}">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="TextBoxSearchOutline"
-                                                     Margin="0,0,10,0"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="{Binding LogsButtonAccentWidth}"
+                                    Margin="0,2,12,2"
+                                    Background="{Binding LogsButtonAccentBrush}"
+                                    CornerRadius="3" />
+                            <Border Grid.Column="1"
+                                    Width="32"
+                                    Height="32"
+                                    CornerRadius="10"
+                                    Background="{Binding LogsIconBackground}"
+                                    BorderBrush="{Binding LogsIconBorderBrush}"
+                                    BorderThickness="1">
+                                <materialDesign:PackIcon Kind="TextBoxSearchOutline"
+                                                         Width="18"
+                                                         Height="18"
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            </Border>
                             <TextBlock Text="Gestor de Logs"
+                                       Grid.Column="2"
+                                       Margin="12,0,0,0"
+                                       Style="{StaticResource NavLabelStyle}"
                                        VerticalAlignment="Center"
-                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                        </StackPanel>
+                                       FontWeight="SemiBold" />
+                        </Grid>
                     </Button>
                     
                 </StackPanel>
@@ -151,16 +271,52 @@
                         </StackPanel>
                     </materialDesign:Card>
 
-                    <StackPanel Margin="0,16,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="{Binding AppVersion}" Foreground="{StaticResource SidebarMutedBrush}" VerticalAlignment="Center" FontSize="12" />
-                        <Button Margin="12,0,0,0" 
-                                Style="{StaticResource MaterialDesignOutlinedButton}" 
-                                Padding="8,2" Height="28" FontSize="11"
-                                Content="ACTUALIZAR" 
-                                Foreground="#4CAF50"
-                                BorderBrush="#4CAF50"
-                                Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Command="{Binding InstallUpdateCommand}" />
+                    <StackPanel Margin="0,16,0,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding AppVersion}" Foreground="{StaticResource SidebarMutedBrush}" VerticalAlignment="Center" FontSize="12" />
+                            <Button Margin="12,0,0,0"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    Padding="8,2"
+                                    Height="28"
+                                    FontSize="11"
+                                    Content="{Binding InstallUpdateButtonText}"
+                                    Foreground="#4CAF50"
+                                    BorderBrush="#4CAF50"
+                                    Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Command="{Binding InstallUpdateCommand}" />
+                        </StackPanel>
+
+                        <Border Margin="0,12,0,0"
+                                Padding="12"
+                                CornerRadius="12"
+                                Background="#F8FAFF"
+                                BorderBrush="#E2E8F0"
+                                BorderThickness="1"
+                                Visibility="{Binding IsUpdateProgressVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <StackPanel>
+                                <DockPanel LastChildFill="False">
+                                    <TextBlock Text="{Binding UpdateDownloadStatus}"
+                                               Foreground="{StaticResource SidebarSurfaceBrush}"
+                                               FontSize="11"
+                                               FontWeight="SemiBold"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock DockPanel.Dock="Right"
+                                               Margin="10,0,0,0"
+                                               Text="{Binding UpdateDownloadProgressText}"
+                                               Foreground="{StaticResource SidebarMutedBrush}"
+                                               FontSize="11"
+                                               FontWeight="SemiBold" />
+                                </DockPanel>
+                                <ProgressBar Margin="0,10,0,0"
+                                             Height="7"
+                                             Minimum="0"
+                                             Maximum="100"
+                                             Value="{Binding UpdateDownloadProgress}"
+                                             IsIndeterminate="{Binding IsUpdateProgressIndeterminate}"
+                                             Foreground="{StaticResource PrimaryHueMidBrush}"
+                                             Background="#E2E8F0" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </StackPanel>
             </Grid>
