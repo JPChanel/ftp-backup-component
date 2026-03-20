@@ -79,11 +79,19 @@ public class ConnectionTester : IConnectionTester
     private static void TestFtp(ConnectionProfile profile, CancellationToken cancellationToken)
     {
         var host = NormalizeFtpHost(profile.Host);
+        var timeoutMilliseconds = checked(Math.Max(1, profile.TimeoutSeconds) * 1000);
         using var client = new FluentFTP.FtpClient(host)
         {
             Port = profile.Port,
             Credentials = new NetworkCredential(profile.Username, profile.Password)
         };
+
+        client.Config.ConnectTimeout = timeoutMilliseconds;
+        client.Config.ReadTimeout = timeoutMilliseconds;
+        client.Config.DataConnectionConnectTimeout = timeoutMilliseconds;
+        client.Config.DataConnectionReadTimeout = timeoutMilliseconds;
+        client.Config.SocketKeepAlive = true;
+
         using var registration = cancellationToken.Register(() =>
         {
             try

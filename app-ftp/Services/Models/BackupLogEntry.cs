@@ -18,6 +18,7 @@ public class BackupLogEntry
     public string? ExecutionDetailsFullPath { get; set; }
     public int FilesTransferred { get; set; }
     public int FilesSkipped { get; set; }
+    public int DirectoriesSkipped { get; set; }
     public int SourceFilesDeleted { get; set; }
     public long BytesTransferred { get; set; }
     public string? ErrorDetail { get; set; }

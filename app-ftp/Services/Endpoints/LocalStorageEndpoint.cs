@@ -36,7 +36,64 @@ public class LocalStorageEndpoint : IStorageEndpoint
         return Task.FromResult<DateTime?>(File.GetLastWriteTimeUtc(path));
     }
 
+    public Task<long?> GetFileSizeAsync(string path, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!File.Exists(path))
+        {
+            return Task.FromResult<long?>(null);
+        }
+
+        return Task.FromResult<long?>(new FileInfo(path).Length);
+    }
+
     public Task<byte[]> DownloadBytesAsync(string path, CancellationToken cancellationToken = default) => File.ReadAllBytesAsync(path, cancellationToken);
+
+    public Task DownloadToLocalFileAsync(string sourcePath, string localPath, bool overwrite, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!overwrite && File.Exists(localPath))
+        {
+            return Task.CompletedTask;
+        }
+
+        EnsureLocalDirectory(localPath);
+        File.Copy(sourcePath, localPath, overwrite);
+        return Task.CompletedTask;
+    }
+
+    public Task UploadFromLocalFileAsync(string destinationPath, string localPath, bool overwrite, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!overwrite && File.Exists(destinationPath))
+        {
+            return Task.CompletedTask;
+        }
+
+        EnsureLocalDirectory(destinationPath);
+        File.Copy(localPath, destinationPath, overwrite);
+        return Task.CompletedTask;
+    }
+
+    public Task<Stream> OpenReadStreamAsync(string path, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Stream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
+        return Task.FromResult(stream);
+    }
+
+    public Task<Stream> OpenWriteStreamAsync(string path, bool overwrite, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsureLocalDirectory(path);
+        if (!overwrite && File.Exists(path))
+        {
+            throw new IOException($"El archivo ya existe en destino: {path}");
+        }
+
+        Stream stream = new FileStream(path, overwrite ? FileMode.Create : FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+        return Task.FromResult(stream);
+    }
 
     public async Task UploadBytesAsync(string path, byte[] content, bool overwrite, CancellationToken cancellationToken = default)
     {
@@ -144,6 +201,14 @@ public class LocalStorageEndpoint : IStorageEndpoint
         return Task.CompletedTask;
     }
 
+    public Task MoveFileAsync(string sourcePath, string destinationPath, bool overwrite, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsureLocalDirectory(destinationPath);
+        File.Move(sourcePath, destinationPath, overwrite);
+        return Task.CompletedTask;
+    }
+
     public Task DeleteFileAsync(string path, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -153,5 +218,16 @@ public class LocalStorageEndpoint : IStorageEndpoint
         }
 
         return Task.CompletedTask;
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+    private static void EnsureLocalDirectory(string path)
+    {
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
     }
 }

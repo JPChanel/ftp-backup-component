@@ -51,6 +51,7 @@ public class MainViewModel : ObservableObject
     private string _updateDownloadStatus = string.Empty;
     private string _testConnectionStatusText = string.Empty;
     private bool? _lastTestConnectionSucceeded;
+    private BackupProgressEntry? _liveConsoleEntry;
 
     public MainViewModel(
         ConnectionStore connectionStore,
@@ -280,7 +281,7 @@ public class MainViewModel : ObservableObject
     public Brush LogsIconBorderBrush => GetMenuIconBorderBrush(UiSection.Logs);
 
     public int SuccessCount => Logs.Count(log => log.Status == "SUCCESS");
-    public int FailedCount => Logs.Count(log => log.Status == "ERROR");
+    public int FailedCount => Logs.Count(log => log.Status is "ERROR" or "PARTIAL");
     public string TotalTransferredText => ByteSizeFormatter.Format(Logs.Sum(log => log.BytesTransferred));
     public string RunBackupButtonText => _isRunningBackup ? "Procesando..." : "Iniciar Proceso de Backup";
     public bool IsRunningBackup => _isRunningBackup;
@@ -629,6 +630,7 @@ public class MainViewModel : ObservableObject
         _isRunningBackup = true;
         _backupCancellationSource = new CancellationTokenSource();
         BackupConsoleEntries.Clear();
+        _liveConsoleEntry = null;
         IsBackupConsoleOpen = true;
         BackupConsoleStatus = "Iniciando backup...";
         OnPropertyChanged(nameof(RunBackupButtonText));
@@ -636,41 +638,8 @@ public class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CanCloseBackupConsole));
         ((AsyncRelayCommand)RunBackupCommand).RaiseCanExecuteChanged();
 
-        void AppendConsoleEntry(string fileName, string status)
-        {
-            var entry = new BackupProgressEntry
-            {
-                Timestamp = DateTime.Now,
-                FileName = fileName,
-                Status = status
-            };
-            BackupConsoleEntries.Add(entry);
-            BackupConsoleStatus = $"{entry.TimestampText} - {entry.Status}";
-        }
-
         try
         {
-            AppendConsoleEntry("SISTEMA", "VALIDANDO CONEXION ORIGEN...");
-            var sourceConnectionTest = await _connectionTester.TestAsync(SelectedSourceConnection.Clone(), _backupCancellationSource.Token);
-            if (!sourceConnectionTest.Success)
-            {
-                AppendConsoleEntry("ORIGEN", $"ERROR: {sourceConnectionTest.Message}");
-                _notifier.PublishError($"La conexion origen no es valida: {sourceConnectionTest.Message}");
-                return;
-            }
-            AppendConsoleEntry("ORIGEN", "CONEXION OK");
-
-            AppendConsoleEntry("SISTEMA", "VALIDANDO CONEXION DESTINO...");
-            var destinationConnectionTest = await _connectionTester.TestAsync(SelectedDestinationConnection.Clone(), _backupCancellationSource.Token);
-            if (!destinationConnectionTest.Success)
-            {
-                AppendConsoleEntry("DESTINO", $"ERROR: {destinationConnectionTest.Message}");
-                _notifier.PublishError($"La conexion destino no es valida: {destinationConnectionTest.Message}");
-                return;
-            }
-            AppendConsoleEntry("DESTINO", "CONEXION OK");
-            AppendConsoleEntry("SISTEMA", "INICIANDO PROCESO DE COPIA...");
-
             var request = new BackupExecutionRequest
             {
                 Source = SelectedSourceConnection,
@@ -684,9 +653,10 @@ public class MainViewModel : ObservableObject
                 Notes = BackupNotes
             };
 
-            var progress = new Progress<BackupProgressEntry>(entry => AppendConsoleEntry(entry.FileName, entry.Status));
+            var progress = new Progress<BackupProgressEntry>(HandleConsoleProgress);
 
             var result = await _backupOrchestrator.ExecuteAsync(request, progress, _backupCancellationSource.Token);
+            ClearLiveConsoleEntry();
             Logs.Insert(0, result);
 
             while (Logs.Count > Settings.MaxVisibleLogs)
@@ -703,6 +673,11 @@ public class MainViewModel : ObservableObject
                 BackupConsoleStatus = "Backup completado";
                 _notifier.PublishSuccess($"Backup completado: {result.FilesTransferred} archivo(s).");
             }
+            else if (result.Status == "PARTIAL")
+            {
+                BackupConsoleStatus = "Backup completado con omisiones.";
+                _notifier.PublishError(result.Message);
+            }
             else if (result.Status == "CANCELLED")
             {
                 BackupConsoleStatus = "Backup cancelado por el usuario.";
@@ -716,6 +691,7 @@ public class MainViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
+            ClearLiveConsoleEntry();
             AppendConsoleEntry("SISTEMA", "CANCELACION SOLICITADA");
             BackupConsoleStatus = "Backup cancelado por el usuario.";
             _notifier.PublishError("Operacion cancelada por el usuario.");
@@ -740,16 +716,87 @@ public class MainViewModel : ObservableObject
         }
 
         _backupCancellationSource.Cancel();
-        BackupConsoleEntries.Add(new BackupProgressEntry
-        {
-            Timestamp = DateTime.Now,
-            FileName = "SISTEMA",
-            Status = "SOLICITANDO CANCELACION..."
-        });
+        AppendConsoleEntry("SISTEMA", "SOLICITANDO CANCELACION...");
         BackupConsoleStatus = "Cancelando backup en curso...";
         StatusMessage = "Cancelando backup en curso...";
         _statusIsError = true;
         RaiseStatusColors();
+    }
+
+    private void HandleConsoleProgress(BackupProgressEntry entry)
+    {
+        if (entry.Status == "EXPLORANDO DIRECTORIO")
+        {
+            UpdateLiveConsoleEntry(entry.FileName, entry.Status);
+            return;
+        }
+
+        if (entry.Status.StartsWith("ERROR EXPLORANDO DIRECTORIO", StringComparison.Ordinal))
+        {
+            ClearLiveConsoleEntry();
+            AppendConsoleEntry(entry.FileName, entry.Status);
+            return;
+        }
+
+        AppendConsoleEntry(entry.FileName, entry.Status);
+    }
+
+    private void AppendConsoleEntry(string fileName, string status)
+    {
+        InsertConsoleEntry(CreateConsoleEntry(fileName, status));
+    }
+
+    private void UpdateLiveConsoleEntry(string fileName, string status)
+    {
+        if (_liveConsoleEntry is null)
+        {
+            _liveConsoleEntry = CreateConsoleEntry(fileName, status);
+            BackupConsoleEntries.Add(_liveConsoleEntry);
+        }
+        else
+        {
+            _liveConsoleEntry.Timestamp = DateTime.Now;
+            _liveConsoleEntry.FileName = fileName;
+            _liveConsoleEntry.Status = status;
+        }
+
+        BackupConsoleStatus = $"{_liveConsoleEntry.TimestampText} - {fileName}";
+    }
+
+    private void ClearLiveConsoleEntry()
+    {
+        if (_liveConsoleEntry is null)
+        {
+            return;
+        }
+
+        BackupConsoleEntries.Remove(_liveConsoleEntry);
+        _liveConsoleEntry = null;
+    }
+
+    private void InsertConsoleEntry(BackupProgressEntry entry)
+    {
+        if (_liveConsoleEntry is not null && BackupConsoleEntries.Remove(_liveConsoleEntry))
+        {
+            BackupConsoleEntries.Add(entry);
+            BackupConsoleEntries.Add(_liveConsoleEntry);
+        }
+        else
+        {
+            BackupConsoleEntries.Add(entry);
+        }
+
+        BackupConsoleStatus = $"{entry.TimestampText} - {entry.Status}";
+    }
+
+    private static BackupProgressEntry CreateConsoleEntry(string fileName, string status)
+    {
+        return new BackupProgressEntry
+        {
+            Timestamp = DateTime.Now,
+            FileName = fileName,
+            Status = status
+        };
     }
 
     private void PersistConnections()

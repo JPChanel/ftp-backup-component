@@ -7,6 +7,7 @@ public class FtpStorageEndpoint : IStorageEndpoint
 {
     private readonly ConnectionProfile _profile;
     private readonly IFtpService _ftpService;
+    private IFtpSession? _session;
 
     public FtpStorageEndpoint(ConnectionProfile profile, IFtpService ftpService)
     {
@@ -14,27 +15,49 @@ public class FtpStorageEndpoint : IStorageEndpoint
         _ftpService = ftpService;
     }
 
-    public Task<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default) => _ftpService.FileExists(_profile.ToCredentials(), path, cancellationToken);
+    public async Task<bool> FileExistsAsync(string path, CancellationToken cancellationToken = default) =>
+        await (await GetSessionAsync(cancellationToken)).FileExistsAsync(path, cancellationToken);
 
-    public Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default) => _ftpService.DirectoryExists(_profile.ToCredentials(), path, cancellationToken);
+    public async Task<bool> DirectoryExistsAsync(string path, CancellationToken cancellationToken = default) =>
+        await (await GetSessionAsync(cancellationToken)).DirectoryExistsAsync(path, cancellationToken);
 
-    public Task<DateTime?> GetLastModifiedAsync(string path, CancellationToken cancellationToken = default) => _ftpService.GetLastModified(_profile.ToCredentials(), path, cancellationToken);
+    public async Task<DateTime?> GetLastModifiedAsync(string path, CancellationToken cancellationToken = default) =>
+        await (await GetSessionAsync(cancellationToken)).GetLastModifiedAsync(path, cancellationToken);
 
-    public Task<byte[]> DownloadBytesAsync(string path, CancellationToken cancellationToken = default) => _ftpService.DownloadFileByte(_profile.ToCredentials(), path, cancellationToken);
+    public async Task<long?> GetFileSizeAsync(string path, CancellationToken cancellationToken = default) =>
+        await (await GetSessionAsync(cancellationToken)).GetFileSizeAsync(path, cancellationToken);
+
+    public async Task<byte[]> DownloadBytesAsync(string path, CancellationToken cancellationToken = default) =>
+        await (await GetSessionAsync(cancellationToken)).DownloadBytesAsync(path, cancellationToken);
+
+    public async Task DownloadToLocalFileAsync(string sourcePath, string localPath, bool overwrite, CancellationToken cancellationToken = default)
+    {
+        await (await GetSessionAsync(cancellationToken)).DownloadToLocalFileAsync(sourcePath, localPath, overwrite, cancellationToken);
+    }
+
+    public async Task UploadFromLocalFileAsync(string destinationPath, string localPath, bool overwrite, CancellationToken cancellationToken = default)
+    {
+        await (await GetSessionAsync(cancellationToken)).UploadFromLocalFileAsync(localPath, destinationPath, overwrite, cancellationToken);
+    }
+
+    public async Task<Stream> OpenReadStreamAsync(string path, CancellationToken cancellationToken = default)
+    {
+        return await (await GetSessionAsync(cancellationToken)).OpenReadStreamAsync(path, cancellationToken);
+    }
+
+    public async Task<Stream> OpenWriteStreamAsync(string path, bool overwrite, CancellationToken cancellationToken = default)
+    {
+        return await (await GetSessionAsync(cancellationToken)).OpenWriteStreamAsync(path, overwrite, cancellationToken);
+    }
 
     public async Task UploadBytesAsync(string path, byte[] content, bool overwrite, CancellationToken cancellationToken = default)
     {
-        if (!overwrite && await FileExistsAsync(path, cancellationToken))
-        {
-            return;
-        }
-
-        await _ftpService.UploadBytes(_profile.ToCredentials(), content, path, cancellationToken);
+        await (await GetSessionAsync(cancellationToken)).UploadBytesAsync(content, path, overwrite, cancellationToken);
     }
 
-    public Task<IReadOnlyList<StorageItem>> ListAsync(string path, bool recursive, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<StorageItem>> ListAsync(string path, bool recursive, CancellationToken cancellationToken = default)
     {
-        return _ftpService.ListFiles(_profile.ToCredentials(), path, recursive, cancellationToken);
+        return await (await GetSessionAsync(cancellationToken)).ListFilesAsync(path, recursive, cancellationToken);
     }
 
     public Task EnsureDirectoryAsync(string path, CancellationToken cancellationToken = default)
@@ -43,5 +66,33 @@ public class FtpStorageEndpoint : IStorageEndpoint
         return Task.CompletedTask;
     }
 
-    public Task DeleteFileAsync(string path, CancellationToken cancellationToken = default) => _ftpService.DeleteFile(_profile.ToCredentials(), path, cancellationToken);
+    public async Task MoveFileAsync(string sourcePath, string destinationPath, bool overwrite, CancellationToken cancellationToken = default)
+    {
+        await (await GetSessionAsync(cancellationToken)).MoveFileAsync(sourcePath, destinationPath, overwrite, cancellationToken);
+    }
+
+    public async Task DeleteFileAsync(string path, CancellationToken cancellationToken = default)
+    {
+        await (await GetSessionAsync(cancellationToken)).DeleteFileAsync(path, cancellationToken);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_session is not null)
+        {
+            await _session.DisposeAsync();
+            _session = null;
+        }
+    }
+
+    private async Task<IFtpSession> GetSessionAsync(CancellationToken cancellationToken)
+    {
+        if (_session is not null)
+        {
+            return _session;
+        }
+
+        _session = await _ftpService.OpenSessionAsync(_profile.ToCredentials(), cancellationToken);
+        return _session;
+    }
 }

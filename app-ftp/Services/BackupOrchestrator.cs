@@ -7,6 +7,7 @@ namespace app_ftp.Services;
 
 public class BackupOrchestrator
 {
+    private const int StreamCopyBufferSize = 1024 * 128;
     private readonly IStorageEndpointFactory _endpointFactory;
 
     public BackupOrchestrator(IStorageEndpointFactory endpointFactory)
@@ -33,20 +34,18 @@ public class BackupOrchestrator
 
         try
         {
-            var sourceEndpoint = _endpointFactory.Create(request.Source);
-            var destinationEndpoint = _endpointFactory.Create(request.Destination);
+            await using var sourceEndpoint = _endpointFactory.Create(request.Source);
+            await using var destinationEndpoint = _endpointFactory.Create(request.Destination);
             var sourceTarget = NormalizePath(request.Source, request.SourcePath);
             var destinationRoot = NormalizeDestinationRoot(request.Destination, request.DestinationPath);
+            await ValidateRequestAsync(request, sourceEndpoint, destinationEndpoint, sourceTarget, destinationRoot, progress, detailBuilder, cancellationToken);
 
-            Report(progress, detailBuilder, "SISTEMA", "RUTAS INICIALES", sourceTarget, destinationRoot);
-            await ValidateRequestAsync(request, sourceEndpoint, destinationEndpoint, sourceTarget, destinationRoot, cancellationToken);
-
-            Report(progress, detailBuilder, "SISTEMA", "EXPLORANDO DIRECTORIOS...");
+            Report(progress, detailBuilder, "SISTEMA", "INICIANDO PROCESO DE COPIA...");
             await ProcessSourceEntriesDfsAsync(request, sourceEndpoint, destinationEndpoint, sourceTarget, progress, detailBuilder, log, cancellationToken);
 
-            log.Status = "SUCCESS";
+            log.Status = log.DirectoriesSkipped > 0 ? "PARTIAL" : "SUCCESS";
             log.Message = BuildSuccessMessage(request, log);
-            Report(progress, detailBuilder, "SISTEMA", "BACKUP FINALIZADO");
+            Report(progress, detailBuilder, "SISTEMA", log.DirectoriesSkipped > 0 ? "BACKUP FINALIZADO CON OMITIDOS" : "BACKUP FINALIZADO");
         }
         catch (OperationCanceledException)
         {
@@ -72,6 +71,8 @@ public class BackupOrchestrator
         IStorageEndpoint destinationEndpoint,
         string sourceTarget,
         string destinationRoot,
+        IProgress<BackupProgressEntry>? progress,
+        StringBuilder detailBuilder,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -86,7 +87,22 @@ public class BackupOrchestrator
             throw new InvalidOperationException("Origen y destino no pueden ser la misma ruta.");
         }
 
-        var sourceState = await GetSourceStateAsync(sourceEndpoint, request.Source, sourceTarget, request.SourcePath, cancellationToken);
+        Report(progress, detailBuilder, "ORIGEN", "VALIDANDO ACCESO REAL", sourceTarget);
+
+        SourceState sourceState;
+        try
+        {
+            sourceState = await GetSourceStateAsync(sourceEndpoint, request.Source, sourceTarget, request.SourcePath, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Error validando origen '{FormatSourcePathLabel(request.SourcePath)}': {ex.Message}", ex);
+        }
+
         if (!sourceState.Exists)
         {
             throw new InvalidOperationException($"La ruta origen '{FormatSourcePathLabel(request.SourcePath)}' no existe o no es accesible.");
@@ -97,12 +113,53 @@ public class BackupOrchestrator
             throw new InvalidOperationException($"La carpeta origen '{FormatSourcePathLabel(request.SourcePath)}' existe pero esta vacia.");
         }
 
+        Report(progress, detailBuilder, "ORIGEN", "ACCESO OK", sourceTarget);
+
         if (request.DeleteSourceAfterCopy && request.Source.Type != ConnectionType.LocalFolder && request.Source.Type != ConnectionType.Ftp && request.Source.Type != ConnectionType.Sftp)
         {
             throw new InvalidOperationException("La eliminacion de origen no esta soportada para este tipo de conexion.");
         }
 
-        _ = destinationEndpoint;
+        await ValidateDestinationAccessAsync(request, destinationEndpoint, destinationRoot, progress, detailBuilder, cancellationToken);
+    }
+
+    private static async Task ValidateDestinationAccessAsync(
+        BackupExecutionRequest request,
+        IStorageEndpoint destinationEndpoint,
+        string destinationRoot,
+        IProgress<BackupProgressEntry>? progress,
+        StringBuilder detailBuilder,
+        CancellationToken cancellationToken)
+    {
+        var destinationBasePath = NormalizePath(request.Destination, string.Empty);
+        Report(progress, detailBuilder, "DESTINO", "VALIDANDO ACCESO REAL", destinationBasePath, destinationRoot);
+
+        try
+        {
+            if (request.Destination.Type == ConnectionType.LocalFolder)
+            {
+                Directory.CreateDirectory(destinationBasePath);
+            }
+            else if (request.Destination.Type is ConnectionType.Ftp or ConnectionType.Sftp)
+            {
+                var probePath = string.IsNullOrWhiteSpace(request.Destination.BasePath) ? "/" : destinationBasePath;
+
+                if (!await destinationEndpoint.DirectoryExistsAsync(probePath, cancellationToken))
+                {
+                    throw new InvalidOperationException($"La ruta base destino '{request.Destination.PathLabel}' no existe o no es accesible.");
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Error validando destino '{request.Destination.PathLabel}': {ex.Message}", ex);
+        }
+
+        Report(progress, detailBuilder, "DESTINO", "ACCESO OK", destinationBasePath, destinationRoot);
     }
 
     private static async Task ProcessSourceEntriesDfsAsync(
@@ -124,6 +181,7 @@ public class BackupOrchestrator
                 FullPath = sourceTarget,
                 RelativePath = Path.GetFileName(sourceTarget.Replace("\\", "/").TrimEnd('/')),
                 IsDirectory = false,
+                Size = await sourceEndpoint.GetFileSizeAsync(sourceTarget, cancellationToken) ?? 0,
                 ModifiedAt = await sourceEndpoint.GetLastModifiedAsync(sourceTarget, cancellationToken) ?? DateTime.MinValue
             };
 
@@ -142,7 +200,26 @@ public class BackupOrchestrator
         {
             cancellationToken.ThrowIfCancellationRequested();
             var currentDirectory = stack.Pop();
-            var entries = await sourceEndpoint.ListAsync(currentDirectory, false, cancellationToken);
+            if (request.Source.Type is ConnectionType.Ftp or ConnectionType.Sftp)
+            {
+                Report(progress, detailBuilder, currentDirectory, "EXPLORANDO DIRECTORIO", currentDirectory);
+            }
+
+            IReadOnlyList<StorageItem> entries;
+            try
+            {
+                entries = await sourceEndpoint.ListAsync(currentDirectory, false, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Report(progress, detailBuilder, currentDirectory, $"ERROR EXPLORANDO DIRECTORIO: {ex.Message}", currentDirectory);
+                log.DirectoriesSkipped++;
+                continue;
+            }
 
             foreach (var directory in entries
                          .Where(item => item.IsDirectory)
@@ -188,6 +265,7 @@ public class BackupOrchestrator
         CancellationToken cancellationToken)
     {
         var destinationFullPath = CombinePath(request.Destination, request.DestinationPath, item.RelativePath);
+        string? transferTargetPath = null;
 
         try
         {
@@ -210,13 +288,23 @@ public class BackupOrchestrator
                 }
             }
 
-            var bytes = await sourceEndpoint.DownloadBytesAsync(item.FullPath, cancellationToken);
-            await destinationEndpoint.EnsureDirectoryAsync(destinationFullPath, cancellationToken);
-            await destinationEndpoint.UploadBytesAsync(destinationFullPath, bytes, request.OverwriteExisting, cancellationToken);
-            var destinationExists = await destinationEndpoint.FileExistsAsync(destinationFullPath, cancellationToken);
-            if (!destinationExists)
+            transferTargetPath = request.DeleteSourceAfterCopy
+                ? BuildTemporaryDestinationPath(destinationFullPath)
+                : destinationFullPath;
+
+            var bytesTransferred = await TransferFileAsync(
+                request,
+                sourceEndpoint,
+                destinationEndpoint,
+                item,
+                transferTargetPath,
+                cancellationToken);
+
+            if (request.DeleteSourceAfterCopy)
             {
-                throw new InvalidOperationException($"No se pudo verificar el archivo copiado en destino: {destinationFullPath}");
+                await VerifyCopiedFileAsync(sourceEndpoint, destinationEndpoint, item, transferTargetPath, cancellationToken);
+                await destinationEndpoint.MoveFileAsync(transferTargetPath, destinationFullPath, request.OverwriteExisting, cancellationToken);
+                await VerifyCopiedFileAsync(sourceEndpoint, destinationEndpoint, item, destinationFullPath, cancellationToken);
             }
 
             Report(progress, detailBuilder, item.RelativePath, "COPIADO", item.FullPath, destinationFullPath);
@@ -234,7 +322,7 @@ public class BackupOrchestrator
             }
 
             log.FilesTransferred++;
-            log.BytesTransferred += bytes.LongLength;
+            log.BytesTransferred += bytesTransferred;
         }
         catch (OperationCanceledException)
         {
@@ -242,6 +330,13 @@ public class BackupOrchestrator
         }
         catch (Exception ex)
         {
+            if (request.DeleteSourceAfterCopy
+                && transferTargetPath is not null
+                && !string.Equals(transferTargetPath, destinationFullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                await TryDeleteFileAsync(destinationEndpoint, transferTargetPath, cancellationToken);
+            }
+
             Report(progress, detailBuilder, item.RelativePath, "ERROR", item.FullPath, destinationFullPath);
             throw new InvalidOperationException($"Error procesando '{item.RelativePath}': {ex.Message}", ex);
         }
@@ -273,8 +368,8 @@ public class BackupOrchestrator
 
             if (string.IsNullOrWhiteSpace(normalizedSourcePath))
             {
-                await endpoint.ListAsync(sourceTarget, true, cancellationToken);
-                return SourceState.DirectoryFound();
+                var rootItems = await endpoint.ListAsync(sourceTarget, false, cancellationToken);
+                return rootItems.Count > 0 ? SourceState.DirectoryFound() : SourceState.EmptyDirectory();
             }
 
             if (await endpoint.FileExistsAsync(sourceTarget, cancellationToken))
@@ -287,7 +382,7 @@ public class BackupOrchestrator
                 return SourceState.NotFound();
             }
 
-            var items = await endpoint.ListAsync(sourceTarget, true, cancellationToken);
+            var items = await endpoint.ListAsync(sourceTarget, false, cancellationToken);
             return items.Count > 0 ? SourceState.DirectoryFound() : SourceState.EmptyDirectory();
         }
 
@@ -368,6 +463,86 @@ public class BackupOrchestrator
                    StringComparison.OrdinalIgnoreCase);
     }
 
+    private static async Task<long> TransferFileAsync(
+        BackupExecutionRequest request,
+        IStorageEndpoint sourceEndpoint,
+        IStorageEndpoint destinationEndpoint,
+        StorageItem item,
+        string destinationFullPath,
+        CancellationToken cancellationToken)
+    {
+        if (request.Source.Type == ConnectionType.LocalFolder && request.Destination.Type == ConnectionType.LocalFolder)
+        {
+            await sourceEndpoint.DownloadToLocalFileAsync(item.FullPath, destinationFullPath, request.OverwriteExisting, cancellationToken);
+            return item.Size > 0 ? item.Size : new FileInfo(destinationFullPath).Length;
+        }
+
+        if (request.Destination.Type == ConnectionType.LocalFolder)
+        {
+            await sourceEndpoint.DownloadToLocalFileAsync(item.FullPath, destinationFullPath, request.OverwriteExisting, cancellationToken);
+            return item.Size > 0 ? item.Size : new FileInfo(destinationFullPath).Length;
+        }
+
+        if (request.Source.Type == ConnectionType.LocalFolder)
+        {
+            await destinationEndpoint.UploadFromLocalFileAsync(destinationFullPath, item.FullPath, request.OverwriteExisting, cancellationToken);
+            return item.Size > 0 ? item.Size : new FileInfo(item.FullPath).Length;
+        }
+
+        await destinationEndpoint.EnsureDirectoryAsync(destinationFullPath, cancellationToken);
+        await using var sourceStream = await sourceEndpoint.OpenReadStreamAsync(item.FullPath, cancellationToken);
+        await using var destinationStream = await destinationEndpoint.OpenWriteStreamAsync(destinationFullPath, request.OverwriteExisting, cancellationToken);
+        await sourceStream.CopyToAsync(destinationStream, StreamCopyBufferSize, cancellationToken);
+        await destinationStream.FlushAsync(cancellationToken);
+
+        return item.Size;
+    }
+
+    private static async Task VerifyCopiedFileAsync(
+        IStorageEndpoint sourceEndpoint,
+        IStorageEndpoint destinationEndpoint,
+        StorageItem item,
+        string destinationPath,
+        CancellationToken cancellationToken)
+    {
+        var expectedSize = item.Size;
+        if (expectedSize == 0)
+        {
+            expectedSize = await sourceEndpoint.GetFileSizeAsync(item.FullPath, cancellationToken) ?? 0;
+        }
+
+        var destinationSize = await destinationEndpoint.GetFileSizeAsync(destinationPath, cancellationToken);
+        if (!destinationSize.HasValue)
+        {
+            throw new InvalidOperationException($"No se pudo verificar el archivo copiado en destino: {destinationPath}");
+        }
+
+        if (destinationSize.Value != expectedSize)
+        {
+            throw new InvalidOperationException(
+                $"La copia verificada no coincide en tamano. Esperado: {expectedSize} bytes. Destino: {destinationSize.Value} bytes.");
+        }
+    }
+
+    private static string BuildTemporaryDestinationPath(string destinationFullPath)
+    {
+        return $"{destinationFullPath}.baas-partial-{Guid.NewGuid():N}";
+    }
+
+    private static async Task TryDeleteFileAsync(IStorageEndpoint endpoint, string path, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (await endpoint.FileExistsAsync(path, cancellationToken))
+            {
+                await endpoint.DeleteFileAsync(path, cancellationToken);
+            }
+        }
+        catch
+        {
+        }
+    }
+
     private static string BuildSuccessMessage(BackupExecutionRequest request, BackupLogEntry log)
     {
         var baseMessage = string.IsNullOrWhiteSpace(request.Notes) ? "Backup completado." : request.Notes;
@@ -375,11 +550,15 @@ public class BackupOrchestrator
             ? $" Se omitieron {log.FilesSkipped} archivo(s) porque el destino ya tenia una version igual o mas reciente."
             : string.Empty;
 
+        var skippedDirectoriesMessage = log.DirectoriesSkipped > 0
+            ? $" Se omitieron {log.DirectoriesSkipped} carpeta(s) por error durante la exploracion."
+            : string.Empty;
+
         var deletedMessage = request.DeleteSourceAfterCopy
             ? $" Se eliminaron {log.SourceFilesDeleted} archivo(s) del origen tras verificar la copia."
             : string.Empty;
 
-        return $"{baseMessage}{skippedMessage}{deletedMessage}";
+        return $"{baseMessage}{skippedMessage}{skippedDirectoriesMessage}{deletedMessage}";
     }
 
     private static void Report(

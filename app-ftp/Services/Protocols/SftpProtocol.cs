@@ -7,28 +7,18 @@ public class SftpProtocol
 {
     private string _errorDescription = string.Empty;
     private SftpClient? _sftpClient;
-    private readonly string _host;
-    private readonly int _port;
-    private readonly string _username;
-    private readonly string _password;
+    private readonly FtpCredentials _credentials;
 
-    public SftpProtocol(string host, int port, string username, string password)
+    public SftpProtocol(FtpCredentials credentials)
     {
-        _host = host;
-        _port = port;
-        _username = username;
-        _password = password;
+        _credentials = credentials;
     }
 
     public bool Connect(int timeout)
     {
         try
         {
-            _sftpClient = new SftpClient(_host, _port, _username, _password)
-            {
-                ConnectionInfo = { Timeout = TimeSpan.FromSeconds(timeout) },
-                KeepAliveInterval = TimeSpan.FromSeconds(10)
-            };
+            _sftpClient = CreateClient(timeout);
             _sftpClient.Connect();
             return true;
         }
@@ -119,6 +109,38 @@ public class SftpProtocol
         }
     }
 
+    public Stream OpenRead(string sftpPath)
+    {
+        try
+        {
+            _errorDescription = string.Empty;
+            return Client.OpenRead(sftpPath);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("No se pudo abrir el stream de lectura SFTP: " + ex.Message, ex);
+        }
+    }
+
+    public Stream OpenWrite(string sftpPath, bool overwrite)
+    {
+        try
+        {
+            _errorDescription = string.Empty;
+            if (!overwrite && Client.Exists(sftpPath))
+            {
+                throw new IOException($"El archivo ya existe en destino: {sftpPath}");
+            }
+
+            CreateDirectory(sftpPath);
+            return overwrite ? Client.OpenWrite(sftpPath) : Client.Create(sftpPath);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("No se pudo abrir el stream de escritura SFTP: " + ex.Message, ex);
+        }
+    }
+
     public bool DeleteFile(string filePath)
     {
         try
@@ -180,6 +202,24 @@ public class SftpProtocol
         catch (Exception ex)
         {
             throw new Exception("No se pudo obtener la fecha de modificacion en SFTP: " + ex.Message, ex);
+        }
+    }
+
+    public long? GetFileSize(string filePath)
+    {
+        try
+        {
+            _errorDescription = string.Empty;
+            if (!Client.Exists(filePath))
+            {
+                return null;
+            }
+
+            return Client.GetAttributes(filePath).Size;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("No se pudo obtener el tamano del archivo en SFTP: " + ex.Message, ex);
         }
     }
 
@@ -281,7 +321,46 @@ public class SftpProtocol
         return _errorDescription;
     }
 
+    public bool IsConnected => _sftpClient?.IsConnected == true;
+
     private SftpClient Client => _sftpClient ?? throw new InvalidOperationException("La conexion SFTP no esta inicializada.");
+
+    private SftpClient CreateClient(int timeout)
+    {
+        if (!string.IsNullOrWhiteSpace(_credentials.PrivateKeyPath))
+        {
+            if (!File.Exists(_credentials.PrivateKeyPath))
+            {
+                throw new Exception("La llave privada configurada no existe.");
+            }
+
+            var methods = new List<AuthenticationMethod>
+            {
+                new PrivateKeyAuthenticationMethod(_credentials.Username, new PrivateKeyFile(_credentials.PrivateKeyPath))
+            };
+
+            if (!string.IsNullOrWhiteSpace(_credentials.Password))
+            {
+                methods.Add(new PasswordAuthenticationMethod(_credentials.Username, _credentials.Password));
+            }
+
+            var connectionInfo = new ConnectionInfo(_credentials.Host, _credentials.Port, _credentials.Username, methods.ToArray())
+            {
+                Timeout = TimeSpan.FromSeconds(timeout)
+            };
+
+            return new SftpClient(connectionInfo)
+            {
+                KeepAliveInterval = TimeSpan.FromSeconds(10)
+            };
+        }
+
+        return new SftpClient(_credentials.Host, _credentials.Port, _credentials.Username, _credentials.Password)
+        {
+            ConnectionInfo = { Timeout = TimeSpan.FromSeconds(timeout) },
+            KeepAliveInterval = TimeSpan.FromSeconds(10)
+        };
+    }
 
     private void LoadDirectory(List<StorageItem> items, string rootPath, string currentPath, bool recursive)
     {
