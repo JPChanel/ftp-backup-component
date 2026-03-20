@@ -41,6 +41,14 @@ public class MainViewModel : ObservableObject
     private bool _isBackupConsoleOpen;
     private string _backupConsoleStatus = string.Empty;
     private bool _useFilterTime;
+    private bool _isDateFromInputValid = true;
+    private bool _isDateToInputValid = true;
+    private bool _isDateTimeFromInputValid = true;
+    private bool _isDateTimeToInputValid = true;
+    private string _dateFromValidationMessage = string.Empty;
+    private string _dateToValidationMessage = string.Empty;
+    private string _dateTimeFromValidationMessage = string.Empty;
+    private string _dateTimeToValidationMessage = string.Empty;
 
     // Update Properties
     private string _appVersion = string.Empty;
@@ -97,7 +105,7 @@ public class MainViewModel : ObservableObject
         CloseConnectionEditorCommand = new RelayCommand(CloseConnectionEditor);
         TestConnectionCommand = new AsyncRelayCommand(TestConnectionAsync, () => !_isTestingConnection);
         SaveSettingsCommand = new RelayCommand(SaveSettings);
-        RunBackupCommand = new AsyncRelayCommand(RunBackupAsync, () => !_isRunningBackup);
+        RunBackupCommand = new AsyncRelayCommand(RunBackupAsync, CanRunBackup);
         CancelBackupCommand = new RelayCommand(CancelBackup);
 
         CheckForUpdatesCommand = new AsyncRelayCommand(CheckForUpdatesAsync);
@@ -211,13 +219,25 @@ public class MainViewModel : ObservableObject
     public DateTime? FilterFromDate
     {
         get => _filterFromDate;
-        set => SetProperty(ref _filterFromDate, value);
+        set
+        {
+            if (SetProperty(ref _filterFromDate, value))
+            {
+                RefreshBackupValidationState();
+            }
+        }
     }
 
     public DateTime? FilterToDate
     {
         get => _filterToDate;
-        set => SetProperty(ref _filterToDate, value);
+        set
+        {
+            if (SetProperty(ref _filterToDate, value))
+            {
+                RefreshBackupValidationState();
+            }
+        }
     }
 
     public string StatusMessage
@@ -370,8 +390,113 @@ public class MainViewModel : ObservableObject
     public bool UseFilterTime
     {
         get => _useFilterTime;
-        set => SetProperty(ref _useFilterTime, value);
+        set
+        {
+            if (SetProperty(ref _useFilterTime, value))
+            {
+                RefreshBackupValidationState();
+            }
+        }
     }
+
+    public bool IsDateFromInputValid
+    {
+        get => _isDateFromInputValid;
+        set
+        {
+            if (SetProperty(ref _isDateFromInputValid, value))
+            {
+                RefreshBackupValidationState();
+            }
+        }
+    }
+
+    public bool IsDateToInputValid
+    {
+        get => _isDateToInputValid;
+        set
+        {
+            if (SetProperty(ref _isDateToInputValid, value))
+            {
+                RefreshBackupValidationState();
+            }
+        }
+    }
+
+    public bool IsDateTimeFromInputValid
+    {
+        get => _isDateTimeFromInputValid;
+        set
+        {
+            if (SetProperty(ref _isDateTimeFromInputValid, value))
+            {
+                RefreshBackupValidationState();
+            }
+        }
+    }
+
+    public bool IsDateTimeToInputValid
+    {
+        get => _isDateTimeToInputValid;
+        set
+        {
+            if (SetProperty(ref _isDateTimeToInputValid, value))
+            {
+                RefreshBackupValidationState();
+            }
+        }
+    }
+
+    public string DateFromValidationMessage
+    {
+        get => _dateFromValidationMessage;
+        set
+        {
+            if (SetProperty(ref _dateFromValidationMessage, value))
+            {
+                RefreshBackupValidationState();
+            }
+        }
+    }
+
+    public string DateToValidationMessage
+    {
+        get => _dateToValidationMessage;
+        set
+        {
+            if (SetProperty(ref _dateToValidationMessage, value))
+            {
+                RefreshBackupValidationState();
+            }
+        }
+    }
+
+    public string DateTimeFromValidationMessage
+    {
+        get => _dateTimeFromValidationMessage;
+        set
+        {
+            if (SetProperty(ref _dateTimeFromValidationMessage, value))
+            {
+                RefreshBackupValidationState();
+            }
+        }
+    }
+
+    public string DateTimeToValidationMessage
+    {
+        get => _dateTimeToValidationMessage;
+        set
+        {
+            if (SetProperty(ref _dateTimeToValidationMessage, value))
+            {
+                RefreshBackupValidationState();
+            }
+        }
+    }
+
+    public string DateFilterValidationMessage => BuildDateFilterValidationMessage();
+    public bool HasDateFilterValidationMessage => !string.IsNullOrWhiteSpace(DateFilterValidationMessage);
 
     public string AppVersion
     {
@@ -604,6 +729,12 @@ public class MainViewModel : ObservableObject
 
     private async Task RunBackupAsync()
     {
+        if (!CanRunBackup())
+        {
+            _notifier.PublishError(DateFilterValidationMessage);
+            return;
+        }
+
         if (SelectedSourceConnection is null || SelectedDestinationConnection is null)
         {
             _notifier.PublishError("Debes seleccionar origen y destino.");
@@ -1078,6 +1209,53 @@ public class MainViewModel : ObservableObject
         return UseFilterTime
             ? FilterToDate.Value
             : FilterToDate.Value.Date.AddDays(1).AddTicks(-1);
+    }
+
+    private bool CanRunBackup()
+    {
+        return !_isRunningBackup && string.IsNullOrWhiteSpace(DateFilterValidationMessage);
+    }
+
+    private void RefreshBackupValidationState()
+    {
+        OnPropertyChanged(nameof(DateFilterValidationMessage));
+        OnPropertyChanged(nameof(HasDateFilterValidationMessage));
+        ((AsyncRelayCommand)RunBackupCommand).RaiseCanExecuteChanged();
+    }
+
+    private string BuildDateFilterValidationMessage()
+    {
+        if (UseFilterTime)
+        {
+            if (!IsDateTimeFromInputValid)
+            {
+                return string.IsNullOrWhiteSpace(DateTimeFromValidationMessage) ? "Corrige la fecha 'Desde'." : DateTimeFromValidationMessage;
+            }
+
+            if (!IsDateTimeToInputValid)
+            {
+                return string.IsNullOrWhiteSpace(DateTimeToValidationMessage) ? "Corrige la fecha 'Hasta'." : DateTimeToValidationMessage;
+            }
+        }
+        else
+        {
+            if (!IsDateFromInputValid)
+            {
+                return string.IsNullOrWhiteSpace(DateFromValidationMessage) ? "Corrige la fecha 'Desde'." : DateFromValidationMessage;
+            }
+
+            if (!IsDateToInputValid)
+            {
+                return string.IsNullOrWhiteSpace(DateToValidationMessage) ? "Corrige la fecha 'Hasta'." : DateToValidationMessage;
+            }
+        }
+
+        var normalizedFromDate = NormalizeFilterFromDate();
+        var normalizedToDate = NormalizeFilterToDate();
+
+        return normalizedFromDate.HasValue && normalizedToDate.HasValue && normalizedFromDate > normalizedToDate
+            ? "La fecha inicial no puede ser mayor que la fecha final."
+            : string.Empty;
     }
 
     private static Brush CreateBrush(string value) => (Brush)new BrushConverter().ConvertFromString(value)!;

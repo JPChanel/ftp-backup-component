@@ -34,6 +34,18 @@ public partial class FormDateTimePicker : UserControl
         DependencyProperty.Register(nameof(IsEnabled), typeof(bool), typeof(FormDateTimePicker),
             new PropertyMetadata(true));
 
+    public static readonly DependencyProperty IsInputValidProperty =
+        DependencyProperty.Register(nameof(IsInputValid), typeof(bool), typeof(FormDateTimePicker),
+            new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnValidationStateChanged));
+
+    public static readonly DependencyProperty ValidationMessageProperty =
+        DependencyProperty.Register(nameof(ValidationMessage), typeof(string), typeof(FormDateTimePicker),
+            new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnValidationStateChanged));
+
+    public static readonly DependencyProperty HasValidationErrorProperty =
+        DependencyProperty.Register(nameof(HasValidationError), typeof(bool), typeof(FormDateTimePicker),
+            new PropertyMetadata(false));
+
     public string Label
     {
         get => (string)GetValue(LabelProperty);
@@ -74,6 +86,24 @@ public partial class FormDateTimePicker : UserControl
     {
         get => (bool)GetValue(IsEnabledProperty);
         set => SetValue(IsEnabledProperty, value);
+    }
+
+    public bool IsInputValid
+    {
+        get => (bool)GetValue(IsInputValidProperty);
+        set => SetValue(IsInputValidProperty, value);
+    }
+
+    public string ValidationMessage
+    {
+        get => (string)GetValue(ValidationMessageProperty);
+        set => SetValue(ValidationMessageProperty, value);
+    }
+
+    public bool HasValidationError
+    {
+        get => (bool)GetValue(HasValidationErrorProperty);
+        private set => SetValue(HasValidationErrorProperty, value);
     }
 
     public FormDateTimePicker()
@@ -163,9 +193,33 @@ public partial class FormDateTimePicker : UserControl
         }
     }
 
+    private static void OnValidationStateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is FormDateTimePicker control)
+        {
+            control.HasValidationError = !control.IsInputValid && !string.IsNullOrWhiteSpace(control.ValidationMessage);
+        }
+    }
+
     private void UpdateDisplayLabel()
     {
         DisplayLabel = Required ? $"{Label} *" : Label;
+    }
+
+    private void DatePickerControl_SelectedDateChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (DatePickerControl.SelectedDate.HasValue)
+        {
+            IsInputValid = true;
+            ValidationMessage = string.Empty;
+        }
+    }
+
+    private void DatePickerControl_DateValidationError(object? sender, DatePickerDateValidationErrorEventArgs e)
+    {
+        IsInputValid = false;
+        ValidationMessage = "Ingresa una fecha valida.";
+        e.ThrowException = false;
     }
 }
 

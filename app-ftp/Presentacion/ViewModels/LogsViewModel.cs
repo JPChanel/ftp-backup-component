@@ -4,6 +4,7 @@ using app_ftp.Services.Models;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Windows.Input;
 
 namespace app_ftp.Presentacion.ViewModels;
@@ -13,6 +14,7 @@ public class LogsViewModel : SectionViewModelBase
     private bool _isLogDetailOpen;
     private string _detailSearchText = string.Empty;
     private string _visibleExecutionDetails = "Sin detalle disponible.";
+    private const int MaxVisibleDetailLines = 5000;
 
     public LogsViewModel(MainViewModel parent) : base(parent)
     {
@@ -110,6 +112,7 @@ public class LogsViewModel : SectionViewModelBase
             return;
         }
 
+        EnsureExecutionDetailsLoaded(SelectedLog);
         DetailSearchText = string.Empty;
         UpdateVisibleExecutionDetails();
         IsLogDetailOpen = true;
@@ -138,6 +141,11 @@ public class LogsViewModel : SectionViewModelBase
 
     private void UpdateVisibleExecutionDetails()
     {
+        if (SelectedLog is not null)
+        {
+            EnsureExecutionDetailsLoaded(SelectedLog);
+        }
+
         var source = SelectedLog?.ExecutionDetails;
         if (string.IsNullOrWhiteSpace(source))
         {
@@ -160,5 +168,51 @@ public class LogsViewModel : SectionViewModelBase
         VisibleExecutionDetails = lines.Count == 0
             ? $"No se encontraron coincidencias para: {term}"
             : string.Join(Environment.NewLine, lines);
+    }
+
+    private static void EnsureExecutionDetailsLoaded(BackupLogEntry log)
+    {
+        if (!string.IsNullOrWhiteSpace(log.ExecutionDetails))
+        {
+            return;
+        }
+
+        var filePath = log.ExecutionDetailsFullPath;
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        {
+            return;
+        }
+
+        var builder = new StringBuilder();
+        var visibleLines = 0;
+
+        foreach (var line in File.ReadLines(filePath))
+        {
+            if (!ShouldKeepDetailLine(line))
+            {
+                continue;
+            }
+
+            builder.AppendLine(line);
+            visibleLines++;
+
+            if (visibleLines >= MaxVisibleDetailLines)
+            {
+                builder.AppendLine($"... detalle truncado a {MaxVisibleDetailLines} lineas para mantener rendimiento.");
+                break;
+            }
+        }
+
+        log.ExecutionDetails = builder.ToString().Trim();
+    }
+
+    private static bool ShouldKeepDetailLine(string line)
+    {
+        return line.Contains("| COPIADO |", StringComparison.Ordinal)
+            || line.Contains("| OMITIDO |", StringComparison.Ordinal)
+            || line.Contains("| ORIGEN ELIMINADO |", StringComparison.Ordinal)
+            || line.Contains("| ERROR |", StringComparison.Ordinal)
+            || line.Contains("| ERROR LEYENDO ARCHIVO:", StringComparison.Ordinal)
+            || line.Contains("| ERROR EXPLORANDO DIRECTORIO:", StringComparison.Ordinal);
     }
 }

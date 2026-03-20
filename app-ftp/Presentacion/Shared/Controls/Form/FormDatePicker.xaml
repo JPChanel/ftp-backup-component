@@ -12,8 +12,10 @@
                     Style="{StaticResource MaterialDesignFloatingHintDatePicker}"
                     FontSize="13"
                     materialDesign:HintAssist.Hint="{Binding DisplayLabel, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                    materialDesign:HintAssist.HelperText="{Binding HelperText, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    materialDesign:HintAssist.HelperText="{Binding EffectiveHelperText, RelativeSource={RelativeSource AncestorType=UserControl}}"
                     SelectedDate="{Binding Value, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    SelectedDateChanged="DatePickerControl_SelectedDateChanged"
+                    DateValidationError="DatePickerControl_DateValidationError"
                     IsEnabled="{Binding IsEnabled, RelativeSource={RelativeSource AncestorType=UserControl}}"
                     Foreground="{DynamicResource MaterialDesignBody}"/>
     </Grid>

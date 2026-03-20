@@ -309,6 +309,26 @@ public class FtpServiceRepository : IFtpService
                 _client.MoveFile(normalizedSourcePath, normalizedDestinationPath);
             }, cancellationToken);
 
+        public Task<bool> TrySetLastModifiedAsync(string remotePath, DateTime modifiedAt, CancellationToken cancellationToken = default) =>
+            RunAsync(() =>
+            {
+                var normalizedPath = NormalizeRemotePath(remotePath);
+                if (!_client.FileExists(normalizedPath))
+                {
+                    return false;
+                }
+
+                try
+                {
+                    _client.SetModifiedTime(normalizedPath, NormalizeFtpTimestamp(modifiedAt));
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }, cancellationToken);
+
         public Task DeleteFileAsync(string remotePath, CancellationToken cancellationToken = default) =>
             RunAsync(() =>
             {
@@ -455,6 +475,13 @@ public class FtpServiceRepository : IFtpService
         private void ThrowIfDisposed()
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+        }
+
+        private static DateTime NormalizeFtpTimestamp(DateTime value)
+        {
+            return value.Kind == DateTimeKind.Utc
+                ? value.ToLocalTime()
+                : value;
         }
 
         private static void EnsureLocalDirectory(string path)

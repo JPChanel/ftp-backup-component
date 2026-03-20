@@ -65,6 +65,9 @@ public class SftpStorageEndpoint : IStorageEndpoint
     public Task MoveFileAsync(string sourcePath, string destinationPath, bool overwrite, CancellationToken cancellationToken = default) =>
         GetSessionCallAsync(session => session.MoveFileAsync(sourcePath, destinationPath, overwrite, cancellationToken), cancellationToken);
 
+    public Task<bool> TrySetLastModifiedAsync(string path, DateTime modifiedAt, CancellationToken cancellationToken = default) =>
+        GetSessionCallAsync(session => session.TrySetLastModifiedAsync(path, modifiedAt, cancellationToken), cancellationToken);
+
     public Task DeleteFileAsync(string path, CancellationToken cancellationToken = default) =>
         GetSessionCallAsync(session => session.DeleteFileAsync(path, cancellationToken), cancellationToken);
 

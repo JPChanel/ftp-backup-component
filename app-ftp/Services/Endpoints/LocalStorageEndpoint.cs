@@ -209,6 +209,18 @@ public class LocalStorageEndpoint : IStorageEndpoint
         return Task.CompletedTask;
     }
 
+    public Task<bool> TrySetLastModifiedAsync(string path, DateTime modifiedAt, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!File.Exists(path))
+        {
+            return Task.FromResult(false);
+        }
+
+        File.SetLastWriteTimeUtc(path, NormalizeUtc(modifiedAt));
+        return Task.FromResult(true);
+    }
+
     public Task DeleteFileAsync(string path, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -229,5 +241,15 @@ public class LocalStorageEndpoint : IStorageEndpoint
         {
             Directory.CreateDirectory(directory);
         }
+    }
+
+    private static DateTime NormalizeUtc(DateTime value)
+    {
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Local).ToUniversalTime()
+        };
     }
 }

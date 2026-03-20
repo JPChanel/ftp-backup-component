@@ -22,12 +22,23 @@ public partial class FormDatePicker : UserControl
     public static readonly DependencyProperty HelperTextProperty =
         DependencyProperty.Register(nameof(HelperText), typeof(string), typeof(FormDatePicker), new PropertyMetadata(string.Empty));
 
+    public static readonly DependencyProperty EffectiveHelperTextProperty =
+        DependencyProperty.Register(nameof(EffectiveHelperText), typeof(string), typeof(FormDatePicker), new PropertyMetadata(string.Empty));
+
     public static readonly DependencyProperty IsEnabledProperty =
         DependencyProperty.Register(nameof(IsEnabled), typeof(bool), typeof(FormDatePicker), new PropertyMetadata(true));
 
     public static readonly DependencyProperty CustomStyleProperty =
         DependencyProperty.Register(nameof(CustomStyle), typeof(Style), typeof(FormDatePicker),
             new PropertyMetadata(null, OnCustomStyleChanged));
+
+    public static readonly DependencyProperty IsInputValidProperty =
+        DependencyProperty.Register(nameof(IsInputValid), typeof(bool), typeof(FormDatePicker),
+            new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnValidationStateChanged));
+
+    public static readonly DependencyProperty ValidationMessageProperty =
+        DependencyProperty.Register(nameof(ValidationMessage), typeof(string), typeof(FormDatePicker),
+            new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnValidationStateChanged));
 
     public string Label
     {
@@ -56,7 +67,17 @@ public partial class FormDatePicker : UserControl
     public string HelperText
     {
         get => (string)GetValue(HelperTextProperty);
-        set => SetValue(HelperTextProperty, value);
+        set
+        {
+            SetValue(HelperTextProperty, value);
+            UpdateEffectiveHelperText();
+        }
+    }
+
+    public string EffectiveHelperText
+    {
+        get => (string)GetValue(EffectiveHelperTextProperty);
+        private set => SetValue(EffectiveHelperTextProperty, value);
     }
 
     public new bool IsEnabled
@@ -71,10 +92,23 @@ public partial class FormDatePicker : UserControl
         set => SetValue(CustomStyleProperty, value);
     }
 
+    public bool IsInputValid
+    {
+        get => (bool)GetValue(IsInputValidProperty);
+        set => SetValue(IsInputValidProperty, value);
+    }
+
+    public string ValidationMessage
+    {
+        get => (string)GetValue(ValidationMessageProperty);
+        set => SetValue(ValidationMessageProperty, value);
+    }
+
     public FormDatePicker()
     {
         InitializeComponent();
         UpdateDisplayLabel();
+        UpdateEffectiveHelperText();
     }
 
     private static void OnLabelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -101,9 +135,40 @@ public partial class FormDatePicker : UserControl
         }
     }
 
+    private static void OnValidationStateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is FormDatePicker datePicker)
+        {
+            datePicker.UpdateEffectiveHelperText();
+        }
+    }
+
     private void UpdateDisplayLabel()
     {
         DisplayLabel = Required ? $"{Label} *" : Label;
+    }
+
+    private void UpdateEffectiveHelperText()
+    {
+        EffectiveHelperText = IsInputValid || string.IsNullOrWhiteSpace(ValidationMessage)
+            ? HelperText
+            : ValidationMessage;
+    }
+
+    private void DatePickerControl_SelectedDateChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (DatePickerControl.SelectedDate.HasValue)
+        {
+            IsInputValid = true;
+            ValidationMessage = string.Empty;
+        }
+    }
+
+    private void DatePickerControl_DateValidationError(object? sender, DatePickerDateValidationErrorEventArgs e)
+    {
+        IsInputValid = false;
+        ValidationMessage = "Ingresa una fecha valida.";
+        e.ThrowException = false;
     }
 }
 

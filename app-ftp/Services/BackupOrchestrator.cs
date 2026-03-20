@@ -8,6 +8,7 @@ namespace app_ftp.Services;
 public class BackupOrchestrator
 {
     private const int StreamCopyBufferSize = 1024 * 128;
+    private const int LocalScanProgressInterval = 250;
     private readonly IStorageEndpointFactory _endpointFactory;
 
     public BackupOrchestrator(IStorageEndpointFactory endpointFactory)
@@ -193,6 +194,12 @@ public class BackupOrchestrator
             return;
         }
 
+        if (request.Source.Type == ConnectionType.LocalFolder)
+        {
+            await ProcessLocalSourceEntriesDfsAsync(request, sourceEndpoint, destinationEndpoint, sourceTarget, progress, detailBuilder, log, cancellationToken);
+            return;
+        }
+
         var stack = new Stack<string>();
         stack.Push(sourceTarget);
 
@@ -202,7 +209,7 @@ public class BackupOrchestrator
             var currentDirectory = stack.Pop();
             if (request.Source.Type is ConnectionType.Ftp or ConnectionType.Sftp)
             {
-                Report(progress, detailBuilder, currentDirectory, "EXPLORANDO DIRECTORIO", currentDirectory);
+                Report(progress, detailBuilder, currentDirectory, "EXPLORANDO DIRECTORIO", currentDirectory, persistDetail: false);
             }
 
             IReadOnlyList<StorageItem> entries;
@@ -254,6 +261,121 @@ public class BackupOrchestrator
         }
     }
 
+    private static async Task ProcessLocalSourceEntriesDfsAsync(
+        BackupExecutionRequest request,
+        IStorageEndpoint sourceEndpoint,
+        IStorageEndpoint destinationEndpoint,
+        string sourceTarget,
+        IProgress<BackupProgressEntry>? progress,
+        StringBuilder detailBuilder,
+        BackupLogEntry log,
+        CancellationToken cancellationToken)
+    {
+        var stack = new Stack<string>();
+        stack.Push(sourceTarget);
+
+        var scannedDirectories = 0;
+        var scannedFiles = 0;
+
+        while (stack.Count > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var currentDirectory = stack.Pop();
+            scannedDirectories++;
+
+            Report(
+                progress,
+                detailBuilder,
+                BuildLocalScanProgressLabel(currentDirectory, scannedDirectories, scannedFiles),
+                "EXPLORANDO DIRECTORIO",
+                currentDirectory,
+                persistDetail: false);
+
+            try
+            {
+                foreach (var directory in Directory.EnumerateDirectories(currentDirectory, "*", SearchOption.TopDirectoryOnly))
+                {
+                    stack.Push(directory);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Report(progress, detailBuilder, currentDirectory, $"ERROR EXPLORANDO DIRECTORIO: {ex.Message}", currentDirectory);
+                log.DirectoriesSkipped++;
+                continue;
+            }
+
+            try
+            {
+                foreach (var filePath in Directory.EnumerateFiles(currentDirectory, "*", SearchOption.TopDirectoryOnly))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    scannedFiles++;
+
+                    if (scannedFiles % LocalScanProgressInterval == 0)
+                    {
+                        Report(
+                            progress,
+                            detailBuilder,
+                            BuildLocalScanProgressLabel(currentDirectory, scannedDirectories, scannedFiles),
+                            "EXPLORANDO DIRECTORIO",
+                            currentDirectory,
+                            persistDetail: false);
+                    }
+
+                    FileInfo fileInfo;
+                    DateTime modifiedAt;
+                    try
+                    {
+                        fileInfo = new FileInfo(filePath);
+                        modifiedAt = File.GetLastWriteTime(filePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        Report(progress, detailBuilder, filePath, $"ERROR LEYENDO ARCHIVO: {ex.Message}", filePath);
+                        log.FilesSkipped++;
+                        continue;
+                    }
+
+                    if (!PassesDateFilter(modifiedAt, request.FilterFromDate, request.FilterToDate))
+                    {
+                        continue;
+                    }
+
+                    var relativePath = BuildRelativePath(request.Source, sourceTarget, filePath);
+                    var fileToProcess = new StorageItem
+                    {
+                        FullPath = filePath,
+                        RelativePath = relativePath,
+                        IsDirectory = false,
+                        Size = fileInfo.Length,
+                        ModifiedAt = modifiedAt
+                    };
+
+                    await ProcessFileAsync(request, sourceEndpoint, destinationEndpoint, fileToProcess, progress, detailBuilder, log, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Report(progress, detailBuilder, currentDirectory, $"ERROR EXPLORANDO DIRECTORIO: {ex.Message}", currentDirectory);
+                log.DirectoriesSkipped++;
+            }
+        }
+    }
+
+    private static string BuildLocalScanProgressLabel(string currentDirectory, int scannedDirectories, int scannedFiles)
+    {
+        return $"{currentDirectory} | carpetas: {scannedDirectories} | archivos revisados: {scannedFiles}";
+    }
+
     private static async Task ProcessFileAsync(
         BackupExecutionRequest request,
         IStorageEndpoint sourceEndpoint,
@@ -275,7 +397,7 @@ public class BackupOrchestrator
                 if (!request.OverwriteExisting)
                 {
                     log.FilesSkipped++;
-                    Report(progress, detailBuilder, item.RelativePath, "OMITIDO", item.FullPath, destinationFullPath);
+                    Report(progress, detailBuilder, item.RelativePath, "OMITIDO", item.FullPath, destinationFullPath, item.ModifiedAt);
                     return;
                 }
 
@@ -283,7 +405,7 @@ public class BackupOrchestrator
                 if (destinationModifiedAt.HasValue && item.ModifiedAt <= destinationModifiedAt.Value)
                 {
                     log.FilesSkipped++;
-                    Report(progress, detailBuilder, item.RelativePath, "OMITIDO", item.FullPath, destinationFullPath);
+                    Report(progress, detailBuilder, item.RelativePath, "OMITIDO", item.FullPath, destinationFullPath, item.ModifiedAt);
                     return;
                 }
             }
@@ -307,7 +429,9 @@ public class BackupOrchestrator
                 await VerifyCopiedFileAsync(sourceEndpoint, destinationEndpoint, item, destinationFullPath, cancellationToken);
             }
 
-            Report(progress, detailBuilder, item.RelativePath, "COPIADO", item.FullPath, destinationFullPath);
+            await TryPreserveLastModifiedAsync(destinationEndpoint, destinationFullPath, item.ModifiedAt, cancellationToken);
+
+            Report(progress, detailBuilder, item.RelativePath, "COPIADO", item.FullPath, destinationFullPath, item.ModifiedAt);
 
             if (request.DeleteSourceAfterCopy)
             {
@@ -318,7 +442,7 @@ public class BackupOrchestrator
 
                 await sourceEndpoint.DeleteFileAsync(item.FullPath, cancellationToken);
                 log.SourceFilesDeleted++;
-                Report(progress, detailBuilder, item.RelativePath, "ORIGEN ELIMINADO", item.FullPath, destinationFullPath);
+                Report(progress, detailBuilder, item.RelativePath, "ORIGEN ELIMINADO", item.FullPath, destinationFullPath, item.ModifiedAt);
             }
 
             log.FilesTransferred++;
@@ -337,7 +461,7 @@ public class BackupOrchestrator
                 await TryDeleteFileAsync(destinationEndpoint, transferTargetPath, cancellationToken);
             }
 
-            Report(progress, detailBuilder, item.RelativePath, "ERROR", item.FullPath, destinationFullPath);
+            Report(progress, detailBuilder, item.RelativePath, "ERROR", item.FullPath, destinationFullPath, item.ModifiedAt);
             throw new InvalidOperationException($"Error procesando '{item.RelativePath}': {ex.Message}", ex);
         }
     }
@@ -524,6 +648,20 @@ public class BackupOrchestrator
         }
     }
 
+    private static async Task TryPreserveLastModifiedAsync(
+        IStorageEndpoint destinationEndpoint,
+        string destinationPath,
+        DateTime modifiedAt,
+        CancellationToken cancellationToken)
+    {
+        if (modifiedAt == DateTime.MinValue)
+        {
+            return;
+        }
+
+        _ = await destinationEndpoint.TrySetLastModifiedAsync(destinationPath, modifiedAt, cancellationToken);
+    }
+
     private static string BuildTemporaryDestinationPath(string destinationFullPath)
     {
         return $"{destinationFullPath}.baas-partial-{Guid.NewGuid():N}";
@@ -567,7 +705,9 @@ public class BackupOrchestrator
         string fileName,
         string status,
         string? sourcePath = null,
-        string? destinationPath = null)
+        string? destinationPath = null,
+        DateTime? modifiedAt = null,
+        bool persistDetail = true)
     {
         var entry = new BackupProgressEntry
         {
@@ -577,9 +717,20 @@ public class BackupOrchestrator
         };
 
         progress?.Report(entry);
-        var sourcePart = string.IsNullOrWhiteSpace(sourcePath) ? "-" : sourcePath;
-        var destinationPart = string.IsNullOrWhiteSpace(destinationPath) ? "-" : destinationPath;
-        detailBuilder.AppendLine($"{entry.TimestampText} | {entry.Status} | ARCHIVO: {entry.FileName} | ORIGEN: {sourcePart} | DESTINO: {destinationPart}");
+        if (persistDetail)
+        {
+            var sourcePart = string.IsNullOrWhiteSpace(sourcePath) ? "-" : sourcePath;
+            var destinationPart = string.IsNullOrWhiteSpace(destinationPath) ? "-" : destinationPath;
+            var modifiedAtPart = modifiedAt.HasValue && modifiedAt.Value != DateTime.MinValue
+                ? FormatDetailDate(modifiedAt.Value)
+                : "-";
+            detailBuilder.AppendLine($"{entry.TimestampText} | {entry.Status} | ARCHIVO: {entry.FileName} | ORIGEN: {sourcePart} | DESTINO: {destinationPart} | MODIFICADO: {modifiedAtPart}");
+        }
+    }
+
+    private static string FormatDetailDate(DateTime value)
+    {
+        return value.ToString("yyyy-MM-dd HH:mm:ss");
     }
 
     private static string BuildRelativePath(ConnectionProfile profile, string rootPath, string fullPath)

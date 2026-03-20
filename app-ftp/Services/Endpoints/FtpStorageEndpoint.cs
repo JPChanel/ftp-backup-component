@@ -71,6 +71,11 @@ public class FtpStorageEndpoint : IStorageEndpoint
         await (await GetSessionAsync(cancellationToken)).MoveFileAsync(sourcePath, destinationPath, overwrite, cancellationToken);
     }
 
+    public async Task<bool> TrySetLastModifiedAsync(string path, DateTime modifiedAt, CancellationToken cancellationToken = default)
+    {
+        return await (await GetSessionAsync(cancellationToken)).TrySetLastModifiedAsync(path, modifiedAt, cancellationToken);
+    }
+
     public async Task DeleteFileAsync(string path, CancellationToken cancellationToken = default)
     {
         await (await GetSessionAsync(cancellationToken)).DeleteFileAsync(path, cancellationToken);

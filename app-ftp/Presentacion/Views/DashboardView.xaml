@@ -140,20 +140,33 @@
                               Content="Especificar hora exacta" />
                     <form:FormDatePicker Label="Desde"
                                          Value="{Binding FilterFromDate, Mode=TwoWay}"
+                                         IsInputValid="{Binding IsDateFromInputValid, Mode=TwoWay}"
+                                         ValidationMessage="{Binding DateFromValidationMessage, Mode=TwoWay}"
                                          Margin="0,0,0,14"
                                          Visibility="{Binding UseFilterTime, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
                     <form:FormDateTimePicker Label="Desde"
                                              Value="{Binding FilterFromDate, Mode=TwoWay}"
+                                             IsInputValid="{Binding IsDateTimeFromInputValid, Mode=TwoWay}"
+                                             ValidationMessage="{Binding DateTimeFromValidationMessage, Mode=TwoWay}"
                                              Margin="0,0,0,14"
                                              Visibility="{Binding UseFilterTime, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <form:FormDatePicker Label="Hasta"
                                          Value="{Binding FilterToDate, Mode=TwoWay}"
+                                         IsInputValid="{Binding IsDateToInputValid, Mode=TwoWay}"
+                                         ValidationMessage="{Binding DateToValidationMessage, Mode=TwoWay}"
                                          Margin="0,0,0,14"
                                          Visibility="{Binding UseFilterTime, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
                     <form:FormDateTimePicker Label="Hasta"
                                              Value="{Binding FilterToDate, Mode=TwoWay}"
+                                             IsInputValid="{Binding IsDateTimeToInputValid, Mode=TwoWay}"
+                                             ValidationMessage="{Binding DateTimeToValidationMessage, Mode=TwoWay}"
                                              Margin="0,0,0,14"
                                              Visibility="{Binding UseFilterTime, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <TextBlock Text="{Binding DateFilterValidationMessage}"
+                               Foreground="#DC2626"
+                               Margin="0,0,0,14"
+                               TextWrapping="Wrap"
+                               Visibility="{Binding HasDateFilterValidationMessage, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <form:FormField Label="Notas"
                                     Value="{Binding BackupNotes, UpdateSourceTrigger=PropertyChanged}"
                                     Variant="TextArea"

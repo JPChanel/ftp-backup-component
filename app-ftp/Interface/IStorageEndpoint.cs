@@ -17,5 +17,6 @@ public interface IStorageEndpoint : IAsyncDisposable
     Task<IReadOnlyList<StorageItem>> ListAsync(string path, bool recursive, CancellationToken cancellationToken = default);
     Task EnsureDirectoryAsync(string path, CancellationToken cancellationToken = default);
     Task MoveFileAsync(string sourcePath, string destinationPath, bool overwrite, CancellationToken cancellationToken = default);
+    Task<bool> TrySetLastModifiedAsync(string path, DateTime modifiedAt, CancellationToken cancellationToken = default);
     Task DeleteFileAsync(string path, CancellationToken cancellationToken = default);
 }

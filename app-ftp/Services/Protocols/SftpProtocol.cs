@@ -254,6 +254,25 @@ public class SftpProtocol
         }
     }
 
+    public bool TrySetLastWriteTimeUtc(string filePath, DateTime lastWriteTimeUtc)
+    {
+        try
+        {
+            _errorDescription = string.Empty;
+            if (!Client.Exists(filePath))
+            {
+                return false;
+            }
+
+            Client.SetLastWriteTimeUtc(filePath, lastWriteTimeUtc);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public bool DeleteDirectory(string folderPath)
     {
         try

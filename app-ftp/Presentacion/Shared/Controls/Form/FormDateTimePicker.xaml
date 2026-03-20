@@ -22,6 +22,8 @@
                         FontSize="13"
                         materialDesign:HintAssist.Hint="{Binding DisplayLabel, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         SelectedDate="{Binding DateValue, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}"
+                        SelectedDateChanged="DatePickerControl_SelectedDateChanged"
+                        DateValidationError="DatePickerControl_DateValidationError"
                         IsEnabled="{Binding IsEnabled, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
             
             <!-- TimePicker -->
@@ -35,6 +37,11 @@
                                        SelectedTime="{Binding TimeValue, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}"
                                        IsEnabled="{Binding IsEnabled, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
         </Grid>
+        <TextBlock Margin="0,4,0,0"
+                   Foreground="#DC2626"
+                   FontSize="11"
+                   Text="{Binding ValidationMessage, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                   Visibility="{Binding HasValidationError, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"/>
     </StackPanel>
 </UserControl>
 

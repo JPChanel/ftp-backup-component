@@ -203,6 +203,9 @@ public class SftpServiceRepository : ISftpService
                 _ = _protocol.RenameFile(sourcePath, destinationPath);
             }, cancellationToken);
 
+        public Task<bool> TrySetLastModifiedAsync(string remotePath, DateTime modifiedAt, CancellationToken cancellationToken = default) =>
+            RunAsync(() => _protocol.TrySetLastWriteTimeUtc(remotePath, NormalizeUtc(modifiedAt)), cancellationToken);
+
         public Task DeleteFileAsync(string remotePath, CancellationToken cancellationToken = default) =>
             RunAsync(() =>
             {
@@ -279,6 +282,16 @@ public class SftpServiceRepository : ISftpService
             {
                 Directory.CreateDirectory(directory);
             }
+        }
+
+        private static DateTime NormalizeUtc(DateTime value)
+        {
+            return value.Kind switch
+            {
+                DateTimeKind.Utc => value,
+                DateTimeKind.Local => value.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(value, DateTimeKind.Local).ToUniversalTime()
+            };
         }
     }
 

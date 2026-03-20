@@ -16,5 +16,6 @@ public interface IFtpSession : IAsyncDisposable
     Task<Stream> OpenWriteStreamAsync(string remotePath, bool overwrite, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<StorageItem>> ListFilesAsync(string remotePath, bool recursive, CancellationToken cancellationToken = default);
     Task MoveFileAsync(string sourcePath, string destinationPath, bool overwrite, CancellationToken cancellationToken = default);
+    Task<bool> TrySetLastModifiedAsync(string remotePath, DateTime modifiedAt, CancellationToken cancellationToken = default);
     Task DeleteFileAsync(string remotePath, CancellationToken cancellationToken = default);
 }

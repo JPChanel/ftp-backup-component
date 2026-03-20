@@ -27,11 +27,6 @@ public class LogStore
 
         foreach (var log in logs)
         {
-            if (!string.IsNullOrWhiteSpace(log.ExecutionDetails))
-            {
-                continue;
-            }
-
             var detailsPath = ResolveDetailsPath(log.ExecutionDetailsFilePath);
             if (detailsPath is null || !File.Exists(detailsPath))
             {
@@ -39,7 +34,6 @@ public class LogStore
             }
 
             log.ExecutionDetailsFullPath = detailsPath;
-            log.ExecutionDetails = File.ReadAllText(detailsPath);
         }
 
         return logs;
@@ -54,6 +48,7 @@ public class LogStore
 
         foreach (var log in logs)
         {
+            log.ExecutionDetails = NormalizeExecutionDetails(log.ExecutionDetails);
             var detailFilePath = ResolveOrCreateDetailsPath(log);
             if (!string.IsNullOrWhiteSpace(log.ExecutionDetails) && detailFilePath is not null)
             {
@@ -92,6 +87,7 @@ public class LogStore
             ExecutionDetailsFilePath = detailFilePath is null ? null : Path.GetFileName(detailFilePath),
             FilesTransferred = log.FilesTransferred,
             FilesSkipped = log.FilesSkipped,
+            DirectoriesSkipped = log.DirectoriesSkipped,
             SourceFilesDeleted = log.SourceFilesDeleted,
             BytesTransferred = log.BytesTransferred,
             ErrorDetail = log.ErrorDetail
@@ -158,5 +154,32 @@ public class LogStore
         var invalidChars = Regex.Escape(new string(Path.GetInvalidFileNameChars()));
         var invalidRegex = new Regex($"[{invalidChars}]");
         return invalidRegex.Replace(value, "_");
+    }
+
+    public static string NormalizeExecutionDetails(string? executionDetails)
+    {
+        if (string.IsNullOrWhiteSpace(executionDetails))
+        {
+            return string.Empty;
+        }
+
+        var keptLines = executionDetails
+            .Split(Environment.NewLine)
+            .Where(ShouldKeepDetailLine)
+            .ToList();
+
+        return keptLines.Count == 0
+            ? string.Empty
+            : string.Join(Environment.NewLine, keptLines);
+    }
+
+    private static bool ShouldKeepDetailLine(string line)
+    {
+        return line.Contains("| COPIADO |", StringComparison.Ordinal)
+            || line.Contains("| OMITIDO |", StringComparison.Ordinal)
+            || line.Contains("| ORIGEN ELIMINADO |", StringComparison.Ordinal)
+            || line.Contains("| ERROR |", StringComparison.Ordinal)
+            || line.Contains("| ERROR LEYENDO ARCHIVO:", StringComparison.Ordinal)
+            || line.Contains("| ERROR EXPLORANDO DIRECTORIO:", StringComparison.Ordinal);
     }
 }
