@@ -1,5 +1,4 @@
 using app_ftp.Services.Models;
-using System.Windows;
 
 namespace app_ftp.Services;
 
@@ -33,6 +32,5 @@ public class ExceptionMiddleware
 
         _logStore.Save(logs);
         _notifier.PublishError($"Error no controlado: {exception.Message}");
-        MessageBox.Show(exception.Message, "UtiBackup - Error", MessageBoxButton.OK, MessageBoxImage.Error);
     }
 }

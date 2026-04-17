@@ -14,6 +14,7 @@ public class ConnectionProfile : ObservableObject
     private string _password = string.Empty;
     private string _basePath = string.Empty;
     private string _privateKeyPath = string.Empty;
+    private string _hostKeyFingerprint = string.Empty;
     private bool _isEnabled = true;
     private int _timeoutSeconds = 120;
     private int _retryCount = 1;
@@ -27,6 +28,7 @@ public class ConnectionProfile : ObservableObject
     public string Password { get => _password; set => SetProperty(ref _password, value); }
     public string BasePath { get => _basePath; set => SetProperty(ref _basePath, value); }
     public string PrivateKeyPath { get => _privateKeyPath; set => SetProperty(ref _privateKeyPath, value); }
+    public string HostKeyFingerprint { get => _hostKeyFingerprint; set => SetProperty(ref _hostKeyFingerprint, value); }
     public bool IsEnabled { get => _isEnabled; set => SetProperty(ref _isEnabled, value); }
     public int TimeoutSeconds { get => _timeoutSeconds; set => SetProperty(ref _timeoutSeconds, value); }
     public int RetryCount { get => _retryCount; set => SetProperty(ref _retryCount, value); }
@@ -56,6 +58,7 @@ public class ConnectionProfile : ObservableObject
             Username = Username,
             Password = Password,
             PrivateKeyPath = PrivateKeyPath,
+            HostKeyFingerprint = HostKeyFingerprint,
             TimeoutSeconds = TimeoutSeconds,
             RetryCount = RetryCount
         };
@@ -74,6 +77,7 @@ public class ConnectionProfile : ObservableObject
             Password = Password,
             BasePath = BasePath,
             PrivateKeyPath = PrivateKeyPath,
+            HostKeyFingerprint = HostKeyFingerprint,
             IsEnabled = IsEnabled,
             TimeoutSeconds = TimeoutSeconds,
             RetryCount = RetryCount

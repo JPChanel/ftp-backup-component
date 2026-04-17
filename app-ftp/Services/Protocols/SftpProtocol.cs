@@ -1,4 +1,5 @@
 using app_ftp.Services.Models;
+using app_ftp.Services;
 using Renci.SshNet;
 
 namespace app_ftp.Services.Protocols;
@@ -368,17 +369,23 @@ public class SftpProtocol
                 Timeout = TimeSpan.FromSeconds(timeout)
             };
 
-            return new SftpClient(connectionInfo)
+            var client = new SftpClient(connectionInfo)
             {
                 KeepAliveInterval = TimeSpan.FromSeconds(10)
             };
+
+            SftpHostKeyVerifier.Attach(client, _credentials.HostKeyFingerprint);
+            return client;
         }
 
-        return new SftpClient(_credentials.Host, _credentials.Port, _credentials.Username, _credentials.Password)
+        var passwordClient = new SftpClient(_credentials.Host, _credentials.Port, _credentials.Username, _credentials.Password)
         {
             ConnectionInfo = { Timeout = TimeSpan.FromSeconds(timeout) },
             KeepAliveInterval = TimeSpan.FromSeconds(10)
         };
+
+        SftpHostKeyVerifier.Attach(passwordClient, _credentials.HostKeyFingerprint);
+        return passwordClient;
     }
 
     private void LoadDirectory(List<StorageItem> items, string rootPath, string currentPath, bool recursive)

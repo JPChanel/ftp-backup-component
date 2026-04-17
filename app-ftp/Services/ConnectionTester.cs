@@ -206,10 +206,14 @@ public class ConnectionTester : IConnectionTester
             }
 
             var connectionInfo = new ConnectionInfo(profile.Host, profile.Port, profile.Username, methods.ToArray());
-            return new SftpClient(connectionInfo);
+            var client = new SftpClient(connectionInfo);
+            SftpHostKeyVerifier.Attach(client, profile.HostKeyFingerprint);
+            return client;
         }
 
-        return new SftpClient(profile.Host, profile.Port, profile.Username, profile.Password);
+        var passwordClient = new SftpClient(profile.Host, profile.Port, profile.Username, profile.Password);
+        SftpHostKeyVerifier.Attach(passwordClient, profile.HostKeyFingerprint);
+        return passwordClient;
     }
 
     private static string NormalizeFtpHost(string host)

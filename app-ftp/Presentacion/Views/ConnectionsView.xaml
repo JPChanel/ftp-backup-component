@@ -176,11 +176,24 @@
                                     <TextBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,14" Text="{Binding EditableConnection.RetryCount}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Reintentos" />
                                 </Grid>
 
-                                <TextBox Text="{Binding EditableConnection.PrivateKeyPath}"
-                                         Style="{StaticResource MaterialDesignFilledTextBox}"
-                                         materialDesign:HintAssist.Hint="Llave SFTP (.pem / .ppk)"
-                                         Margin="0,0,0,14"
-                                         Visibility="{Binding IsSftpConnectionType, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Grid Visibility="{Binding IsSftpConnectionType, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBox Grid.Row="0"
+                                             Text="{Binding EditableConnection.PrivateKeyPath}"
+                                             Style="{StaticResource MaterialDesignFilledTextBox}"
+                                             materialDesign:HintAssist.Hint="Llave privada SFTP (.pem / .ppk)"
+                                             Margin="0,0,0,14" />
+
+                                    <TextBox Grid.Row="1"
+                                             Text="{Binding EditableConnection.HostKeyFingerprint}"
+                                             Style="{StaticResource MaterialDesignFilledTextBox}"
+                                             materialDesign:HintAssist.Hint="Huella del host (ej. ssh-rsa 2048 77:5d:... o SHA256:...)"
+                                             Margin="0,0,0,14" />
+                                </Grid>
 
                                 <CheckBox IsChecked="{Binding EditableConnection.IsEnabled}" Content="Conexion habilitada" Margin="0,0,0,8" />
                             </StackPanel>

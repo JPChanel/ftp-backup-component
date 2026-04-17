@@ -1,11 +1,13 @@
 using app_ftp.Config;
 using app_ftp.Interface;
 using app_ftp.Presentacion.Common;
+using app_ftp.Presentacion.Models;
 using app_ftp.Services;
 using app_ftp.Services.Models;
 using app_ftp.Services.Updates;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Windows;
 
 namespace app_ftp.Presentacion.ViewModels;
 
@@ -28,8 +30,6 @@ public class MainViewModel : ObservableObject
     private string _backupNotes = string.Empty;
     private DateTime? _filterFromDate;
     private DateTime? _filterToDate;
-    private string _statusMessage = string.Empty;
-    private bool _statusIsError;
     private string _logSearchText = string.Empty;
     private BackupLogEntry? _selectedLog;
     private bool _isRunningBackup;
@@ -96,7 +96,7 @@ public class MainViewModel : ObservableObject
         ShowDashboardCommand = new RelayCommand(() => SetSection(UiSection.Dashboard));
         ShowConnectionsCommand = new RelayCommand(() => SetSection(UiSection.Connections));
         ShowLogsCommand = new RelayCommand(() => SetSection(UiSection.Logs));
-        ClearStatusCommand = new RelayCommand(() => StatusMessage = string.Empty);
+        DismissToastCommand = new RelayCommand(DismissToast);
         CreateConnectionCommand = new RelayCommand(CreateConnection);
         EditConnectionCommand = new RelayCommand(EditConnection);
         DeleteConnectionCommand = new RelayCommand(DeleteConnection);
@@ -113,9 +113,7 @@ public class MainViewModel : ObservableObject
 
         _notifier.StatusPublished += (message, isError) =>
         {
-            StatusMessage = message;
-            _statusIsError = isError;
-            RaiseStatusColors();
+            PublishToast(message, isError);
         };
 
         AttachEditableConnectionHandlers(_editableConnection);
@@ -130,6 +128,7 @@ public class MainViewModel : ObservableObject
     public ObservableCollection<BackupLogEntry> Logs { get; }
     public ObservableCollection<BackupLogEntry> FilteredLogs { get; }
     public ObservableCollection<BackupProgressEntry> BackupConsoleEntries { get; } = [];
+    public ObservableCollection<ToastNotification> ToastNotifications { get; } = [];
     public AppSettings Settings { get; }
     public DashboardViewModel Dashboard { get; }
     public ConnectionsViewModel ConnectionsSection { get; }
@@ -139,7 +138,7 @@ public class MainViewModel : ObservableObject
     public ICommand ShowConnectionsCommand { get; }
     public ICommand ShowLogsCommand { get; }
     public ICommand ShowSettingsCommand { get; }
-    public ICommand ClearStatusCommand { get; }
+    public ICommand DismissToastCommand { get; }
     public ICommand CreateConnectionCommand { get; }
     public ICommand EditConnectionCommand { get; }
     public ICommand DeleteConnectionCommand { get; }
@@ -239,23 +238,6 @@ public class MainViewModel : ObservableObject
             }
         }
     }
-
-    public string StatusMessage
-    {
-        get => _statusMessage;
-        set
-        {
-            if (SetProperty(ref _statusMessage, value))
-            {
-                OnPropertyChanged(nameof(HasStatusMessage));
-            }
-        }
-    }
-
-    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
-    public Brush StatusBannerBackground => CreateBrush(_statusIsError ? "#FFF1F1" : "#EEF8F1");
-    public Brush StatusBannerBorder => CreateBrush(_statusIsError ? "#F4CACA" : "#B6E0C2");
-    public Brush StatusBannerForeground => CreateBrush(_statusIsError ? "#B63B48" : "#21784A");
 
     public string HeaderTitle => _selectedSection switch
     {
@@ -598,9 +580,7 @@ public class MainViewModel : ObservableObject
 
         Connections.Remove(connection);
         PersistConnections();
-        StatusMessage = $"Conexion eliminada: {connection.Name}";
-        _statusIsError = false;
-        RaiseStatusColors();
+        _notifier.PublishSuccess($"Conexion eliminada: {connection.Name}");
     }
 
     private void SaveConnection()
@@ -659,9 +639,7 @@ public class MainViewModel : ObservableObject
         }
 
         PersistConnections();
-        StatusMessage = $"Conexion guardada: {EditableConnection.Name}";
-        _statusIsError = false;
-        RaiseStatusColors();
+        _notifier.PublishSuccess($"Conexion guardada: {EditableConnection.Name}");
         CloseConnectionEditor();
     }
 
@@ -683,9 +661,7 @@ public class MainViewModel : ObservableObject
         {
             Directory.CreateDirectory(Settings.LocalBackupRoot);
         }
-        StatusMessage = "Configuracion guardada.";
-        _statusIsError = false;
-        RaiseStatusColors();
+        _notifier.PublishSuccess("Configuracion guardada.");
     }
 
     private async Task TestConnectionAsync()
@@ -849,9 +825,7 @@ public class MainViewModel : ObservableObject
         _backupCancellationSource.Cancel();
         AppendConsoleEntry("SISTEMA", "SOLICITANDO CANCELACION...");
         BackupConsoleStatus = "Cancelando backup en curso...";
-        StatusMessage = "Cancelando backup en curso...";
-        _statusIsError = true;
-        RaiseStatusColors();
+        _notifier.PublishError("Cancelando backup en curso...");
     }
 
     private void HandleConsoleProgress(BackupProgressEntry entry)
@@ -1000,11 +974,75 @@ public class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(LogsIconBorderBrush));
     }
 
-    private void RaiseStatusColors()
+    private void PublishToast(string message, bool isError)
     {
-        OnPropertyChanged(nameof(StatusBannerBackground));
-        OnPropertyChanged(nameof(StatusBannerBorder));
-        OnPropertyChanged(nameof(StatusBannerForeground));
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        void EnqueueToast()
+        {
+            var toast = new ToastNotification
+            {
+                Message = message,
+                IsError = isError
+            };
+
+            ToastNotifications.Add(toast);
+
+            while (ToastNotifications.Count > 4)
+            {
+                ToastNotifications.RemoveAt(0);
+            }
+
+            ScheduleToastDismissal(toast.Id, isError ? TimeSpan.FromSeconds(8) : TimeSpan.FromSeconds(5));
+        }
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            EnqueueToast();
+            return;
+        }
+
+        _ = dispatcher.InvokeAsync(EnqueueToast);
+    }
+
+    private void DismissToast(object? parameter)
+    {
+        if (parameter is ToastNotification toast)
+        {
+            RemoveToast(toast.Id);
+        }
+    }
+
+    private async void ScheduleToastDismissal(Guid toastId, TimeSpan delay)
+    {
+        try
+        {
+            await Task.Delay(delay);
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.CheckAccess())
+            {
+                RemoveToast(toastId);
+                return;
+            }
+
+            await dispatcher.InvokeAsync(() => RemoveToast(toastId));
+        }
+        catch
+        {
+        }
+    }
+
+    private void RemoveToast(Guid toastId)
+    {
+        var toast = ToastNotifications.FirstOrDefault(item => item.Id == toastId);
+        if (toast is not null)
+        {
+            ToastNotifications.Remove(toast);
+        }
     }
 
     private void AttachEditableConnectionHandlers(ConnectionProfile connection)
@@ -1025,11 +1063,13 @@ public class MainViewModel : ObservableObject
                 EditableConnection.Username = string.Empty;
                 EditableConnection.Password = string.Empty;
                 EditableConnection.PrivateKeyPath = string.Empty;
+                EditableConnection.HostKeyFingerprint = string.Empty;
             }
 
             if (EditableConnection.Type == ConnectionType.Ftp)
             {
                 EditableConnection.PrivateKeyPath = string.Empty;
+                EditableConnection.HostKeyFingerprint = string.Empty;
             }
 
             if (EditableConnection.Type == ConnectionType.None)
@@ -1038,6 +1078,7 @@ public class MainViewModel : ObservableObject
                 EditableConnection.Username = string.Empty;
                 EditableConnection.Password = string.Empty;
                 EditableConnection.PrivateKeyPath = string.Empty;
+                EditableConnection.HostKeyFingerprint = string.Empty;
                 EditableConnection.BasePath = string.Empty;
                 EditableConnection.Host = string.Empty;
             }

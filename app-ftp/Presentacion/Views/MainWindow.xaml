@@ -325,26 +325,9 @@
         <Grid Grid.Column="1" Margin="20,10">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <materialDesign:Card Grid.Row="1"
-                                 Margin="0,0,0,16"
-                                 Padding="18,14"
-                                 UniformCornerRadius="18"
-                                 Background="{Binding StatusBannerBackground}"
-                                 Visibility="{Binding HasStatusMessage, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <DockPanel LastChildFill="False">
-                    <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusBannerForeground}" FontWeight="SemiBold" />
-                    <Button DockPanel.Dock="Right"
-                            Command="{Binding ClearStatusCommand}"
-                            Style="{StaticResource MaterialDesignToolButton}">
-                        <materialDesign:PackIcon Kind="Close" Foreground="{Binding StatusBannerForeground}" />
-                    </Button>
-                </DockPanel>
-            </materialDesign:Card>
-
-            <Grid Grid.Row="2">
+            <Grid Grid.Row="1">
                 <ScrollViewer VerticalScrollBarVisibility="Hidden"
                               HorizontalScrollBarVisibility="Disabled"
                               CanContentScroll="False"
@@ -381,5 +364,120 @@
                 </ContentControl>
             </Grid>
         </Grid>
+
+        <ItemsControl Grid.Column="1"
+                      Margin="0,0,0,24"
+                      Panel.ZIndex="20"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Bottom"
+                      ItemsSource="{Binding ToastNotifications}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Margin="0,0,0,12"
+                            Padding="16,12"
+                            MaxWidth="520"
+                            CornerRadius="16"
+                            BorderThickness="1"
+                            Background="#F8FAFC"
+                            BorderBrush="#CBD5E1">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="#EEF8F1" />
+                                <Setter Property="BorderBrush" Value="#B6E0C2" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsError}" Value="True">
+                                        <Setter Property="Background" Value="#FFF1F1" />
+                                        <Setter Property="BorderBrush" Value="#F4CACA" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <DockPanel LastChildFill="True">
+                            <Border DockPanel.Dock="Left"
+                                    Width="34"
+                                    Height="34"
+                                    Margin="0,0,12,0"
+                                    CornerRadius="10"
+                                    Background="#DCFCE7">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#DCFCE7" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsError}" Value="True">
+                                                <Setter Property="Background" Value="#FEE2E2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <materialDesign:PackIcon Width="18"
+                                                         Height="18"
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="#15803D">
+                                    <materialDesign:PackIcon.Style>
+                                        <Style TargetType="materialDesign:PackIcon">
+                                            <Setter Property="Kind" Value="CheckCircleOutline" />
+                                            <Setter Property="Foreground" Value="#15803D" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsError}" Value="True">
+                                                    <Setter Property="Kind" Value="AlertCircleOutline" />
+                                                    <Setter Property="Foreground" Value="#B91C1C" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </materialDesign:PackIcon.Style>
+                                </materialDesign:PackIcon>
+                            </Border>
+
+                            <Button DockPanel.Dock="Right"
+                                    Margin="12,0,0,0"
+                                    Padding="0"
+                                    Width="32"
+                                    Height="32"
+                                    Command="{Binding DataContext.DismissToastCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"
+                                    Style="{StaticResource MaterialDesignToolButton}">
+                                <materialDesign:PackIcon Kind="Close"
+                                                         Width="16"
+                                                         Height="16">
+                                    <materialDesign:PackIcon.Style>
+                                        <Style TargetType="materialDesign:PackIcon">
+                                            <Setter Property="Foreground" Value="#15803D" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsError}" Value="True">
+                                                    <Setter Property="Foreground" Value="#B91C1C" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </materialDesign:PackIcon.Style>
+                                </materialDesign:PackIcon>
+                            </Button>
+
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="{Binding Message}"
+                                       TextWrapping="Wrap"
+                                       FontWeight="SemiBold"
+                                       Foreground="#166534">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#166534" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsError}" Value="True">
+                                                <Setter Property="Foreground" Value="#991B1B" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DockPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
     </Grid>
 </Window>
