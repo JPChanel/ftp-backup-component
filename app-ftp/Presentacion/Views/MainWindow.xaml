@@ -390,6 +390,10 @@
                                 <Setter Property="Background" Value="#EEF8F1" />
                                 <Setter Property="BorderBrush" Value="#B6E0C2" />
                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                                        <Setter Property="Background" Value="#FFF8E8" />
+                                        <Setter Property="BorderBrush" Value="#F7D58A" />
+                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding IsError}" Value="True">
                                         <Setter Property="Background" Value="#FFF1F1" />
                                         <Setter Property="BorderBrush" Value="#F4CACA" />
@@ -408,6 +412,9 @@
                                     <Style TargetType="Border">
                                         <Setter Property="Background" Value="#DCFCE7" />
                                         <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                                                <Setter Property="Background" Value="#FEF3C7" />
+                                            </DataTrigger>
                                             <DataTrigger Binding="{Binding IsError}" Value="True">
                                                 <Setter Property="Background" Value="#FEE2E2" />
                                             </DataTrigger>
@@ -424,6 +431,10 @@
                                             <Setter Property="Kind" Value="CheckCircleOutline" />
                                             <Setter Property="Foreground" Value="#15803D" />
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                                                    <Setter Property="Kind" Value="AlertOutline" />
+                                                    <Setter Property="Foreground" Value="#B45309" />
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsError}" Value="True">
                                                     <Setter Property="Kind" Value="AlertCircleOutline" />
                                                     <Setter Property="Foreground" Value="#B91C1C" />
@@ -449,6 +460,9 @@
                                         <Style TargetType="materialDesign:PackIcon">
                                             <Setter Property="Foreground" Value="#15803D" />
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                                                    <Setter Property="Foreground" Value="#B45309" />
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsError}" Value="True">
                                                     <Setter Property="Foreground" Value="#B91C1C" />
                                                 </DataTrigger>
@@ -467,6 +481,9 @@
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="#166534" />
                                         <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                                                <Setter Property="Foreground" Value="#92400E" />
+                                            </DataTrigger>
                                             <DataTrigger Binding="{Binding IsError}" Value="True">
                                                 <Setter Property="Foreground" Value="#991B1B" />
                                             </DataTrigger>

@@ -111,9 +111,9 @@ public class MainViewModel : ObservableObject
         CheckForUpdatesCommand = new AsyncRelayCommand(CheckForUpdatesAsync);
         InstallUpdateCommand = new AsyncRelayCommand(InstallUpdateAsync);
 
-        _notifier.StatusPublished += (message, isError) =>
+        _notifier.StatusPublished += (message, severity) =>
         {
-            PublishToast(message, isError);
+            PublishToast(message, severity);
         };
 
         AttachEditableConnectionHandlers(_editableConnection);
@@ -783,12 +783,12 @@ public class MainViewModel : ObservableObject
             else if (result.Status == "PARTIAL")
             {
                 BackupConsoleStatus = "Backup completado con omisiones.";
-                _notifier.PublishError(result.Message);
+                _notifier.PublishWarning(result.Message);
             }
             else if (result.Status == "CANCELLED")
             {
                 BackupConsoleStatus = "Backup cancelado por el usuario.";
-                _notifier.PublishError(result.Message);
+                _notifier.PublishWarning(result.Message);
             }
             else
             {
@@ -801,7 +801,7 @@ public class MainViewModel : ObservableObject
             ClearLiveConsoleEntry();
             AppendConsoleEntry("SISTEMA", "CANCELACION SOLICITADA");
             BackupConsoleStatus = "Backup cancelado por el usuario.";
-            _notifier.PublishError("Operacion cancelada por el usuario.");
+            _notifier.PublishWarning("Operacion cancelada por el usuario.");
         }
         finally
         {
@@ -825,7 +825,7 @@ public class MainViewModel : ObservableObject
         _backupCancellationSource.Cancel();
         AppendConsoleEntry("SISTEMA", "SOLICITANDO CANCELACION...");
         BackupConsoleStatus = "Cancelando backup en curso...";
-        _notifier.PublishError("Cancelando backup en curso...");
+        _notifier.PublishWarning("Cancelando backup en curso...");
     }
 
     private void HandleConsoleProgress(BackupProgressEntry entry)
@@ -974,7 +974,7 @@ public class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(LogsIconBorderBrush));
     }
 
-    private void PublishToast(string message, bool isError)
+    private void PublishToast(string message, ToastSeverity severity)
     {
         if (string.IsNullOrWhiteSpace(message))
         {
@@ -986,7 +986,7 @@ public class MainViewModel : ObservableObject
             var toast = new ToastNotification
             {
                 Message = message,
-                IsError = isError
+                Severity = severity
             };
 
             ToastNotifications.Add(toast);
@@ -996,7 +996,7 @@ public class MainViewModel : ObservableObject
                 ToastNotifications.RemoveAt(0);
             }
 
-            ScheduleToastDismissal(toast.Id, isError ? TimeSpan.FromSeconds(8) : TimeSpan.FromSeconds(5));
+            ScheduleToastDismissal(toast.Id, GetToastDuration(severity));
         }
 
         var dispatcher = Application.Current?.Dispatcher;
@@ -1008,6 +1008,13 @@ public class MainViewModel : ObservableObject
 
         _ = dispatcher.InvokeAsync(EnqueueToast);
     }
+
+    private static TimeSpan GetToastDuration(ToastSeverity severity) => severity switch
+    {
+        ToastSeverity.Error => TimeSpan.FromSeconds(8),
+        ToastSeverity.Warning => TimeSpan.FromSeconds(6),
+        _ => TimeSpan.FromSeconds(5)
+    };
 
     private void DismissToast(object? parameter)
     {
