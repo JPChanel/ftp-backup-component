@@ -264,26 +264,52 @@ public class FtpServiceRepository : IFtpService
             }
         }
 
-        public Task<IReadOnlyList<StorageItem>> ListFilesAsync(string remotePath, bool recursive, CancellationToken cancellationToken = default) =>
-            RunAsync<IReadOnlyList<StorageItem>>(() =>
+        public Task<bool> HasEntriesAsync(string remotePath, CancellationToken cancellationToken = default) =>
+            RunAsync<bool>(() =>
             {
                 var root = NormalizeRemotePath(remotePath);
-                var listing = recursive
-                    ? _client.GetListing(root, FtpListOption.Recursive)
-                    : _client.GetListing(root);
+                // Usamos GetNameListing para ser más eficientes, ya que solo necesitamos saber si hay ALGO
+                var listing = _client.GetNameListing(root);
+                return listing.Any(name => name != "." && name != "..");
+            }, cancellationToken);
 
-                return listing
-                    .Where(item => item.Type is FtpObjectType.File or FtpObjectType.Directory)
-                    .Select(item => new StorageItem
+        public async IAsyncEnumerable<StorageItem> ListFilesAsync(string remotePath, bool recursive, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var root = NormalizeRemotePath(remotePath);
+            await _gate.WaitAsync(cancellationToken);
+            FtpListItem[] listing;
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ThrowIfDisposed();
+                // EnsureConnected(cancellationToken); is called inside RunAsync normally, let's call it manually
+                EnsureConnected(cancellationToken);
+                
+                listing = await Task.Run(() => recursive 
+                    ? _client.GetListing(root, FtpListOption.Recursive) 
+                    : _client.GetListing(root), cancellationToken);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+
+            foreach (var item in listing)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (item.Type is FtpObjectType.File or FtpObjectType.Directory)
+                {
+                    yield return new StorageItem
                     {
                         FullPath = item.FullName,
                         RelativePath = GetRelativeRemotePath(root, item.FullName),
                         IsDirectory = item.Type == FtpObjectType.Directory,
                         Size = item.Size,
                         ModifiedAt = item.Modified
-                    })
-                    .ToList();
-            }, cancellationToken);
+                    };
+                }
+            }
+        }
 
         public Task MoveFileAsync(string sourcePath, string destinationPath, bool overwrite, CancellationToken cancellationToken = default) =>
             RunAsync(() =>

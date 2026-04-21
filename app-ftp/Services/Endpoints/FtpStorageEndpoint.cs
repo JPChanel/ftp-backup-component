@@ -55,9 +55,19 @@ public class FtpStorageEndpoint : IStorageEndpoint
         await (await GetSessionAsync(cancellationToken)).UploadBytesAsync(content, path, overwrite, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<StorageItem>> ListAsync(string path, bool recursive, CancellationToken cancellationToken = default)
+    public async Task<bool> HasEntriesAsync(string path, CancellationToken cancellationToken = default)
     {
-        return await (await GetSessionAsync(cancellationToken)).ListFilesAsync(path, recursive, cancellationToken);
+        return await (await GetSessionAsync(cancellationToken)).HasEntriesAsync(path, cancellationToken);
+    }
+
+    public async IAsyncEnumerable<StorageItem> ListAsync(string path, bool recursive, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var session = await GetSessionAsync(cancellationToken);
+        await foreach (var item in session.ListFilesAsync(path, recursive, cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            yield return item;
+        }
     }
 
     public Task EnsureDirectoryAsync(string path, CancellationToken cancellationToken = default)

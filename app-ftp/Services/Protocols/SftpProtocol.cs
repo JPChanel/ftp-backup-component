@@ -1,5 +1,4 @@
 using app_ftp.Services.Models;
-using app_ftp.Services;
 using Renci.SshNet;
 
 namespace app_ftp.Services.Protocols;
@@ -29,18 +28,34 @@ public class SftpProtocol
         }
     }
 
-    public bool UploadFile(string sourcePath, string destinationPath, bool overwrite)
+    public async Task<bool> UploadFileAsync(string sourcePath, string destinationPath, bool overwrite, CancellationToken cancellationToken = default)
     {
         try
         {
             _errorDescription = string.Empty;
-            using var fileStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read);
-            Client.UploadFile(fileStream, destinationPath, overwrite);
+            if (!Client.IsConnected)
+            {
+                Client.Connect();
+            }
+
+            var folder = Path.GetDirectoryName(destinationPath);
+            if (!string.IsNullOrWhiteSpace(folder) && !Client.Exists(folder))
+            {
+                Client.CreateDirectory(folder);
+            }
+
+            await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                using var fileStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read);
+                Client.UploadFile(fileStream, destinationPath, overwrite);
+            }, cancellationToken);
+            
             return true;
         }
         catch (Exception ex)
         {
-            throw new Exception("No se pudo subir el documento al SFTP " + ex.Message);
+            throw new Exception("No se pudo subir el documento al SFTP " + ex.Message, ex);
         }
     }
 
@@ -80,18 +95,22 @@ public class SftpProtocol
         }
     }
 
-    public bool DownloadFile(string sftpPath, string localPath)
+    public async Task<bool> DownloadFileAsync(string sftpPath, string localPath, CancellationToken cancellationToken = default)
     {
         try
         {
             _errorDescription = string.Empty;
-            using var fileStream = new FileStream(localPath, FileMode.Create, FileAccess.Write);
-            Client.DownloadFile(sftpPath, fileStream);
+            await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                using var fileStream = new FileStream(localPath, FileMode.Create, FileAccess.Write);
+                Client.DownloadFile(sftpPath, fileStream);
+            }, cancellationToken);
             return true;
         }
         catch (Exception ex)
         {
-            throw new Exception("No se pudo recuperar el documento del SFTP " + ex.Message);
+            throw new Exception("No se pudo recuperar el documento del SFTP " + ex.Message, ex);
         }
     }
 
@@ -162,7 +181,10 @@ public class SftpProtocol
         try
         {
             _errorDescription = string.Empty;
-            return Client.Exists(filePath);
+            if (!Client.Exists(filePath))
+                return false;
+
+            return !Client.GetAttributes(filePath).IsDirectory;
         }
         catch (Exception ex)
         {
@@ -237,6 +259,42 @@ public class SftpProtocol
         catch (Exception ex)
         {
             throw new Exception("No se pudo listar archivos en SFTP: " + ex.Message, ex);
+        }
+    }
+
+    public async IAsyncEnumerable<StorageItem> ListFilesAsync(string rootPath, bool recursive, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        _errorDescription = string.Empty;
+        var normalizedRoot = string.IsNullOrWhiteSpace(rootPath) ? "." : rootPath.Replace("\\", "/");
+
+        await foreach (var item in LoadDirectoryAsync(normalizedRoot, normalizedRoot, recursive, cancellationToken))
+        {
+            yield return item;
+        }
+    }
+
+    public async Task<bool> HasEntriesAsync(string remotePath, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var normalizedPath = string.IsNullOrWhiteSpace(remotePath) ? "." : remotePath.Replace("\\", "/");
+            await foreach (var entry in Client.ListDirectoryAsync(normalizedPath, cancellationToken))
+            {
+                if (entry.Name is "." or "..")
+                    continue;
+
+                return true; // para en el primer entry real — no lista todo
+            }
+
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("No se pudo verificar entradas en SFTP: " + ex.Message, ex);
         }
     }
 
@@ -423,6 +481,49 @@ public class SftpProtocol
                 Size = entry.Attributes.Size,
                 ModifiedAt = entry.Attributes.LastWriteTimeUtc
             });
+        }
+    }
+
+    private async IAsyncEnumerable<StorageItem> LoadDirectoryAsync(string rootPath, string currentPath, bool recursive, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await foreach (var entry in Client.ListDirectoryAsync(currentPath, cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (entry.Name is "." or "..")
+            {
+                continue;
+            }
+
+            if (entry.IsDirectory)
+            {
+                yield return new StorageItem
+                {
+                    FullPath = entry.FullName,
+                    RelativePath = GetRelativeRemotePath(rootPath, entry.FullName),
+                    IsDirectory = true,
+                    ModifiedAt = entry.Attributes.LastWriteTimeUtc
+                };
+
+                if (recursive)
+                {
+                    await foreach (var nestedItem in LoadDirectoryAsync(rootPath, entry.FullName, true, cancellationToken))
+                    {
+                        yield return nestedItem;
+                    }
+                }
+
+                continue;
+            }
+
+            yield return new StorageItem
+            {
+                FullPath = entry.FullName,
+                RelativePath = GetRelativeRemotePath(rootPath, entry.FullName),
+                IsDirectory = false,
+                Size = entry.Attributes.Size,
+                ModifiedAt = entry.Attributes.LastWriteTimeUtc
+            };
         }
     }
 

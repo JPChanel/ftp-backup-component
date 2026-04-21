@@ -107,17 +107,28 @@ public class SftpServiceRepository : ISftpService
         public Task<byte[]> DownloadBytesAsync(string remotePath, CancellationToken cancellationToken = default) =>
             RunAsync(() => _protocol.DownloadFileBytes(remotePath), cancellationToken);
 
-        public Task DownloadToLocalFileAsync(string remotePath, string localPath, bool overwrite, CancellationToken cancellationToken = default) =>
-            RunAsync(() =>
+        public async Task DownloadToLocalFileAsync(string remotePath, string localPath, bool overwrite, CancellationToken cancellationToken = default)
+        {
+            await _gate.WaitAsync(cancellationToken);
+            try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                ThrowIfDisposed();
+                EnsureConnected();
+
                 if (!overwrite && File.Exists(localPath))
                 {
                     return;
                 }
 
                 EnsureLocalDirectory(localPath);
-                _ = _protocol.DownloadFile(remotePath, localPath);
-            }, cancellationToken);
+                await _protocol.DownloadFileAsync(remotePath, localPath, cancellationToken);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
 
         public Task UploadBytesAsync(byte[] content, string remotePath, bool overwrite, CancellationToken cancellationToken = default) =>
             RunAsync(() =>
@@ -131,17 +142,28 @@ public class SftpServiceRepository : ISftpService
                 _ = _protocol.UploadByte(content, remotePath, overwrite);
             }, cancellationToken);
 
-        public Task UploadFromLocalFileAsync(string localPath, string remotePath, bool overwrite, CancellationToken cancellationToken = default) =>
-            RunAsync(() =>
+        public async Task UploadFromLocalFileAsync(string localPath, string remotePath, bool overwrite, CancellationToken cancellationToken = default)
+        {
+            await _gate.WaitAsync(cancellationToken);
+            try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                ThrowIfDisposed();
+                EnsureConnected();
+
                 if (!overwrite && _protocol.FileExists(remotePath))
                 {
                     return;
                 }
 
                 _protocol.CreateDirectory(remotePath);
-                _ = _protocol.UploadFile(localPath, remotePath, overwrite);
-            }, cancellationToken);
+                await _protocol.UploadFileAsync(localPath, remotePath, overwrite, cancellationToken);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
 
         public async Task<Stream> OpenReadStreamAsync(string remotePath, CancellationToken cancellationToken = default)
         {
@@ -179,8 +201,41 @@ public class SftpServiceRepository : ISftpService
             }
         }
 
-        public Task<IReadOnlyList<StorageItem>> ListFilesAsync(string remotePath, bool recursive, CancellationToken cancellationToken = default) =>
-            RunAsync(() => _protocol.ListFiles(remotePath, recursive), cancellationToken);
+        public async IAsyncEnumerable<StorageItem> ListFilesAsync(string remotePath, bool recursive, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            await _gate.WaitAsync(cancellationToken);
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ThrowIfDisposed();
+                EnsureConnected();
+                
+                await foreach (var item in _protocol.ListFilesAsync(remotePath, recursive, cancellationToken))
+                {
+                    yield return item;
+                }
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        public async Task<bool> HasEntriesAsync(string remotePath, CancellationToken cancellationToken = default)
+        {
+            await _gate.WaitAsync(cancellationToken);
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ThrowIfDisposed();
+                EnsureConnected();
+                return await _protocol.HasEntriesAsync(remotePath, cancellationToken);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
 
         public Task MoveFileAsync(string sourcePath, string destinationPath, bool overwrite, CancellationToken cancellationToken = default) =>
             RunAsync(() =>

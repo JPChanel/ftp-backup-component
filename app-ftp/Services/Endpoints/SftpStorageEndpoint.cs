@@ -51,9 +51,19 @@ public class SftpStorageEndpoint : IStorageEndpoint
         return GetSessionCallAsync(session => session.UploadBytesAsync(content, path, overwrite, cancellationToken), cancellationToken);
     }
 
-    public Task<IReadOnlyList<StorageItem>> ListAsync(string path, bool recursive, CancellationToken cancellationToken = default)
+    public Task<bool> HasEntriesAsync(string path, CancellationToken cancellationToken = default)
     {
-        return GetSessionCallAsync(session => session.ListFilesAsync(path, recursive, cancellationToken), cancellationToken);
+        return GetSessionCallAsync(session => session.HasEntriesAsync(path, cancellationToken), cancellationToken);
+    }
+
+    public async IAsyncEnumerable<StorageItem> ListAsync(string path, bool recursive, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        ISftpSession session = await GetSessionAsync(cancellationToken);
+        await foreach (var item in session.ListFilesAsync(path, recursive, cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            yield return item;
+        }
     }
 
     public Task EnsureDirectoryAsync(string path, CancellationToken cancellationToken = default)

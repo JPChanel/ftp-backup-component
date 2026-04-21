@@ -202,20 +202,67 @@ public class BackupOrchestrator
 
         var stack = new Stack<string>();
         stack.Push(sourceTarget);
+        
+        int scannedDirectories = 0;
+        int scannedFiles = 0;
 
         while (stack.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var currentDirectory = stack.Pop();
+            scannedDirectories++;
+            
             if (request.Source.Type is ConnectionType.Ftp or ConnectionType.Sftp)
             {
                 Report(progress, detailBuilder, currentDirectory, "EXPLORANDO DIRECTORIO", currentDirectory, persistDetail: false);
             }
 
-            IReadOnlyList<StorageItem> entries;
+            var subDirectories = new List<string>();
+            var filesToProcess = new List<StorageItem>();
+
             try
             {
-                entries = await sourceEndpoint.ListAsync(currentDirectory, false, cancellationToken);
+                var asyncEntries = sourceEndpoint.ListAsync(currentDirectory, false, cancellationToken);
+                await foreach(var item in asyncEntries)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    
+                    if (item.IsDirectory)
+                    {
+                        subDirectories.Add(item.FullPath);
+                    }
+                    else
+                    {
+                        scannedFiles++;
+                        if (scannedFiles % LocalScanProgressInterval == 0)
+                        {
+                            Report(
+                                progress,
+                                detailBuilder,
+                                BuildLocalScanProgressLabel(currentDirectory, scannedDirectories, scannedFiles),
+                                "EXPLORANDO DIRECTORIO",
+                                currentDirectory,
+                                persistDetail: false);
+                        }
+
+                        var relativePath = BuildRelativePath(request.Source, sourceTarget, item.FullPath);
+                        var fileToProcess = new StorageItem
+                        {
+                            FullPath = item.FullPath,
+                            RelativePath = relativePath,
+                            IsDirectory = false,
+                            Size = item.Size,
+                            ModifiedAt = item.ModifiedAt
+                        };
+
+                        if (!PassesDateFilter(fileToProcess.ModifiedAt, request.FilterFromDate, request.FilterToDate))
+                        {
+                            continue;
+                        }
+
+                        filesToProcess.Add(fileToProcess);
+                    }
+                }
             }
             catch (OperationCanceledException)
             {
@@ -228,35 +275,16 @@ public class BackupOrchestrator
                 continue;
             }
 
-            foreach (var directory in entries
-                         .Where(item => item.IsDirectory)
-                         .OrderByDescending(item => item.FullPath, StringComparer.OrdinalIgnoreCase))
-            {
-                stack.Push(directory.FullPath);
-            }
-
-            foreach (var file in entries
-                         .Where(item => !item.IsDirectory)
-                         .OrderBy(item => item.FullPath, StringComparer.OrdinalIgnoreCase))
+            // Descargar despues de listar para no causar deadlocks en la sesion
+            foreach (var fileToProcess in filesToProcess.OrderBy(f => f.FullPath, StringComparer.OrdinalIgnoreCase))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-
-                var relativePath = BuildRelativePath(request.Source, sourceTarget, file.FullPath);
-                var fileToProcess = new StorageItem
-                {
-                    FullPath = file.FullPath,
-                    RelativePath = relativePath,
-                    IsDirectory = false,
-                    Size = file.Size,
-                    ModifiedAt = file.ModifiedAt
-                };
-
-                if (!PassesDateFilter(fileToProcess.ModifiedAt, request.FilterFromDate, request.FilterToDate))
-                {
-                    continue;
-                }
-
                 await ProcessFileAsync(request, sourceEndpoint, destinationEndpoint, fileToProcess, progress, detailBuilder, log, cancellationToken);
+            }
+
+            foreach (var directory in subDirectories.OrderByDescending(d => d, StringComparer.OrdinalIgnoreCase))
+            {
+                stack.Push(directory);
             }
         }
     }
@@ -492,8 +520,8 @@ public class BackupOrchestrator
 
             if (string.IsNullOrWhiteSpace(normalizedSourcePath))
             {
-                var rootItems = await endpoint.ListAsync(sourceTarget, false, cancellationToken);
-                return rootItems.Count > 0 ? SourceState.DirectoryFound() : SourceState.EmptyDirectory();
+                var hasRootEntries = await endpoint.HasEntriesAsync(sourceTarget, cancellationToken);
+                return hasRootEntries ? SourceState.DirectoryFound() : SourceState.EmptyDirectory();
             }
 
             if (await endpoint.FileExistsAsync(sourceTarget, cancellationToken))
@@ -506,8 +534,8 @@ public class BackupOrchestrator
                 return SourceState.NotFound();
             }
 
-            var items = await endpoint.ListAsync(sourceTarget, false, cancellationToken);
-            return items.Count > 0 ? SourceState.DirectoryFound() : SourceState.EmptyDirectory();
+            var hasEntries = await endpoint.HasEntriesAsync(sourceTarget, cancellationToken);
+            return hasEntries ? SourceState.DirectoryFound() : SourceState.EmptyDirectory();
         }
 
         return await endpoint.FileExistsAsync(sourceTarget, cancellationToken)
@@ -555,7 +583,7 @@ public class BackupOrchestrator
             .Where(segment => !string.IsNullOrWhiteSpace(segment))
             .Select(segment => segment.Replace("\\", "/").Trim('/'));
 
-        return string.Join("/", clean);
+        return "/" + string.Join("/", clean);
     }
 
     private static bool PassesDateFilter(DateTime value, DateTime? from, DateTime? to)
