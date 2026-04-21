@@ -36,13 +36,15 @@ public class BackupOrchestrator
         try
         {
             await using var sourceEndpoint = _endpointFactory.Create(request.Source);
+            await using var sourceDownloadEndpoint = _endpointFactory.Create(request.Source); // Nuevo endpoint concurrente
             await using var destinationEndpoint = _endpointFactory.Create(request.Destination);
+            
             var sourceTarget = NormalizePath(request.Source, request.SourcePath);
             var destinationRoot = NormalizeDestinationRoot(request.Destination, request.DestinationPath);
             await ValidateRequestAsync(request, sourceEndpoint, destinationEndpoint, sourceTarget, destinationRoot, progress, detailBuilder, cancellationToken);
 
             Report(progress, detailBuilder, "SISTEMA", "INICIANDO PROCESO DE COPIA...");
-            await ProcessSourceEntriesDfsAsync(request, sourceEndpoint, destinationEndpoint, sourceTarget, progress, detailBuilder, log, cancellationToken);
+            await ProcessSourceEntriesDfsAsync(request, sourceEndpoint, sourceDownloadEndpoint, destinationEndpoint, sourceTarget, progress, detailBuilder, log, cancellationToken);
 
             log.Status = log.DirectoriesSkipped > 0 ? "PARTIAL" : "SUCCESS";
             log.Message = BuildSuccessMessage(request, log);
@@ -166,6 +168,7 @@ public class BackupOrchestrator
     private static async Task ProcessSourceEntriesDfsAsync(
         BackupExecutionRequest request,
         IStorageEndpoint sourceEndpoint,
+        IStorageEndpoint sourceDownloadEndpoint,
         IStorageEndpoint destinationEndpoint,
         string sourceTarget,
         IProgress<BackupProgressEntry>? progress,
@@ -188,7 +191,7 @@ public class BackupOrchestrator
 
             if (PassesDateFilter(singleItem.ModifiedAt, request.FilterFromDate, request.FilterToDate))
             {
-                await ProcessFileAsync(request, sourceEndpoint, destinationEndpoint, singleItem, progress, detailBuilder, log, cancellationToken);
+                await ProcessFileAsync(request, sourceDownloadEndpoint, destinationEndpoint, singleItem, progress, detailBuilder, log, cancellationToken);
             }
 
             return;
@@ -218,7 +221,6 @@ public class BackupOrchestrator
             }
 
             var subDirectories = new List<string>();
-            var filesToProcess = new List<StorageItem>();
 
             try
             {
@@ -260,7 +262,8 @@ public class BackupOrchestrator
                             continue;
                         }
 
-                        filesToProcess.Add(fileToProcess);
+                        // USAMOS EL ENDPOINT DE DESCARGAS PARA NO BLOQUEAR LA CONEXION DE LISTAS
+                        await ProcessFileAsync(request, sourceDownloadEndpoint, destinationEndpoint, fileToProcess, progress, detailBuilder, log, cancellationToken);
                     }
                 }
             }
@@ -273,13 +276,6 @@ public class BackupOrchestrator
                 Report(progress, detailBuilder, currentDirectory, $"ERROR EXPLORANDO DIRECTORIO: {ex.Message}", currentDirectory);
                 log.DirectoriesSkipped++;
                 continue;
-            }
-
-            // Descargar despues de listar para no causar deadlocks en la sesion
-            foreach (var fileToProcess in filesToProcess.OrderBy(f => f.FullPath, StringComparer.OrdinalIgnoreCase))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await ProcessFileAsync(request, sourceEndpoint, destinationEndpoint, fileToProcess, progress, detailBuilder, log, cancellationToken);
             }
 
             foreach (var directory in subDirectories.OrderByDescending(d => d, StringComparer.OrdinalIgnoreCase))
