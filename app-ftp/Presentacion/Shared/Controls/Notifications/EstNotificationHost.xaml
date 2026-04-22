@@ -1,0 +1,99 @@
+<UserControl x:Class="app_ftp.Presentacion.Shared.Controls.Notifications.EstNotificationHost"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             x:Name="Root"
+             mc:Ignorable="d">
+    <Border MaxWidth="420"
+            Padding="18"
+            Background="{Binding CurrentBackgroundBrush, ElementName=Root}"
+            BorderBrush="{Binding CurrentBorderBrush, ElementName=Root}"
+            BorderThickness="1"
+            CornerRadius="20"
+            Effect="{DynamicResource MaterialDesignElevationShadow4}">
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="Visibility" Value="Collapsed" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsOpen, ElementName=Root}" Value="True">
+                        <Setter Property="Visibility" Value="Visible" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Border Width="42"
+                    Height="42"
+                    VerticalAlignment="Top"
+                    Background="#19FFFFFF"
+                    CornerRadius="21">
+                <materialDesign:PackIcon Width="22"
+                                         Height="22"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         Foreground="{Binding CurrentForegroundBrush, ElementName=Root}"
+                                         Kind="{Binding CurrentIconKind, ElementName=Root}" />
+            </Border>
+
+            <StackPanel Grid.Column="1"
+                        Margin="14,0,12,0">
+                <TextBlock FontSize="15"
+                           FontWeight="Bold"
+                           Foreground="{Binding CurrentForegroundBrush, ElementName=Root}"
+                           Text="{Binding CurrentTitle, ElementName=Root}" />
+                <TextBlock Margin="0,6,0,0"
+                           Foreground="{Binding CurrentForegroundBrush, ElementName=Root}"
+                           Opacity="0.92"
+                           Text="{Binding CurrentMessage, ElementName=Root}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Button Grid.Column="2"
+                    Width="28"
+                    Height="28"
+                    VerticalAlignment="Top"
+                    HorizontalAlignment="Right"
+                    Padding="0"
+                    Click="DismissButton_Click"
+                    Background="#1FFFFFFF"
+                    BorderBrush="#26FFFFFF"
+                    BorderThickness="1"
+                    Cursor="Hand"
+                    ToolTip="Cerrar notificacion">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="DismissBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="14">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="DismissBorder" Property="Background" Value="#33FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="DismissBorder" Property="Background" Value="#4DFFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <materialDesign:PackIcon Kind="Close"
+                                         Width="16"
+                                         Height="16"
+                                         Foreground="{Binding CurrentForegroundBrush, ElementName=Root}" />
+            </Button>
+        </Grid>
+    </Border>
+</UserControl>

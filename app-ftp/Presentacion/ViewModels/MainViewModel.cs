@@ -1,7 +1,6 @@
 using app_ftp.Config;
 using app_ftp.Interface;
 using app_ftp.Presentacion.Common;
-using app_ftp.Presentacion.Models;
 using app_ftp.Services;
 using app_ftp.Services.Models;
 using app_ftp.Services.Updates;
@@ -96,7 +95,6 @@ public class MainViewModel : ObservableObject
         ShowDashboardCommand = new RelayCommand(() => SetSection(UiSection.Dashboard));
         ShowConnectionsCommand = new RelayCommand(() => SetSection(UiSection.Connections));
         ShowLogsCommand = new RelayCommand(() => SetSection(UiSection.Logs));
-        DismissToastCommand = new RelayCommand(DismissToast);
         CreateConnectionCommand = new RelayCommand(CreateConnection);
         EditConnectionCommand = new RelayCommand(EditConnection);
         DeleteConnectionCommand = new RelayCommand(DeleteConnection);
@@ -111,11 +109,6 @@ public class MainViewModel : ObservableObject
         CheckForUpdatesCommand = new AsyncRelayCommand(CheckForUpdatesAsync);
         InstallUpdateCommand = new AsyncRelayCommand(InstallUpdateAsync);
 
-        _notifier.StatusPublished += (message, severity) =>
-        {
-            PublishToast(message, severity);
-        };
-
         AttachEditableConnectionHandlers(_editableConnection);
         UpdateDashboard();
         SetSection(UiSection.Dashboard);
@@ -128,17 +121,16 @@ public class MainViewModel : ObservableObject
     public ObservableCollection<BackupLogEntry> Logs { get; }
     public ObservableCollection<BackupLogEntry> FilteredLogs { get; }
     public ObservableCollection<BackupProgressEntry> BackupConsoleEntries { get; } = [];
-    public ObservableCollection<ToastNotification> ToastNotifications { get; } = [];
     public AppSettings Settings { get; }
     public DashboardViewModel Dashboard { get; }
     public ConnectionsViewModel ConnectionsSection { get; }
     public LogsViewModel LogsSection { get; }
+    public IAlertService AlertService => _notifier;
 
     public ICommand ShowDashboardCommand { get; }
     public ICommand ShowConnectionsCommand { get; }
     public ICommand ShowLogsCommand { get; }
     public ICommand ShowSettingsCommand { get; }
-    public ICommand DismissToastCommand { get; }
     public ICommand CreateConnectionCommand { get; }
     public ICommand EditConnectionCommand { get; }
     public ICommand DeleteConnectionCommand { get; }
@@ -291,7 +283,13 @@ public class MainViewModel : ObservableObject
     public bool IsBackupConsoleOpen
     {
         get => _isBackupConsoleOpen;
-        set => SetProperty(ref _isBackupConsoleOpen, value);
+        set
+        {
+            if (SetProperty(ref _isBackupConsoleOpen, value))
+            {
+                OnPropertyChanged(nameof(IsAnyModalOpen));
+            }
+        }
     }
     public string BackupConsoleStatus
     {
@@ -354,8 +352,15 @@ public class MainViewModel : ObservableObject
     public bool IsConnectionEditorOpen
     {
         get => _isConnectionEditorOpen;
-        set => SetProperty(ref _isConnectionEditorOpen, value);
+        set
+        {
+            if (SetProperty(ref _isConnectionEditorOpen, value))
+            {
+                OnPropertyChanged(nameof(IsAnyModalOpen));
+            }
+        }
     }
+    public bool IsAnyModalOpen => IsBackupConsoleOpen || IsConnectionEditorOpen || LogsSection.IsLogDetailOpen;
     public bool IsLocalConnectionType => EditableConnection.Type == ConnectionType.LocalFolder;
     public bool IsRemoteConnectionType => EditableConnection.Type is ConnectionType.Ftp or ConnectionType.Sftp;
     public bool IsSftpConnectionType => EditableConnection.Type == ConnectionType.Sftp;
@@ -974,84 +979,6 @@ public class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(LogsIconBorderBrush));
     }
 
-    private void PublishToast(string message, ToastSeverity severity)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return;
-        }
-
-        void EnqueueToast()
-        {
-            var toast = new ToastNotification
-            {
-                Message = message,
-                Severity = severity
-            };
-
-            ToastNotifications.Add(toast);
-
-            while (ToastNotifications.Count > 4)
-            {
-                ToastNotifications.RemoveAt(0);
-            }
-
-            ScheduleToastDismissal(toast.Id, GetToastDuration(severity));
-        }
-
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            EnqueueToast();
-            return;
-        }
-
-        _ = dispatcher.InvokeAsync(EnqueueToast);
-    }
-
-    private static TimeSpan GetToastDuration(ToastSeverity severity) => severity switch
-    {
-        ToastSeverity.Error => TimeSpan.FromSeconds(8),
-        ToastSeverity.Warning => TimeSpan.FromSeconds(6),
-        _ => TimeSpan.FromSeconds(5)
-    };
-
-    private void DismissToast(object? parameter)
-    {
-        if (parameter is ToastNotification toast)
-        {
-            RemoveToast(toast.Id);
-        }
-    }
-
-    private async void ScheduleToastDismissal(Guid toastId, TimeSpan delay)
-    {
-        try
-        {
-            await Task.Delay(delay);
-            var dispatcher = Application.Current?.Dispatcher;
-            if (dispatcher is null || dispatcher.CheckAccess())
-            {
-                RemoveToast(toastId);
-                return;
-            }
-
-            await dispatcher.InvokeAsync(() => RemoveToast(toastId));
-        }
-        catch
-        {
-        }
-    }
-
-    private void RemoveToast(Guid toastId)
-    {
-        var toast = ToastNotifications.FirstOrDefault(item => item.Id == toastId);
-        if (toast is not null)
-        {
-            ToastNotifications.Remove(toast);
-        }
-    }
-
     private void AttachEditableConnectionHandlers(ConnectionProfile connection)
     {
         connection.PropertyChanged -= OnEditableConnectionPropertyChanged;
@@ -1367,5 +1294,10 @@ public class MainViewModel : ObservableObject
             >= 100 => "Descarga finalizada. Preparando instalacion...",
             _ => $"Descargando actualizacion... {UpdateDownloadProgress}%"
         };
+    }
+
+    internal void RaiseModalOverlayState()
+    {
+        OnPropertyChanged(nameof(IsAnyModalOpen));
     }
 }

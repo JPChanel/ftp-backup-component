@@ -9,60 +9,202 @@
              mc:Ignorable="d">
     <UserControl.Resources>
         <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />
+
+        <Style x:Key="MetricCardStyle" TargetType="materialDesign:Card">
+            <Setter Property="Margin" Value="0,0,18,18" />
+            <Setter Property="Padding" Value="22" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="UniformCornerRadius" Value="28" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="materialDesign:ElevationAssist.Elevation" Value="Dp2" />
+        </Style>
+
+        <Style x:Key="LogsContentBlurStyle" TargetType="FrameworkElement">
+            <Setter Property="Effect" Value="{x:Null}" />
+            <Setter Property="Opacity" Value="1" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsLogDetailOpen}" Value="True">
+                    <Setter Property="Opacity" Value="0.82" />
+                    <Setter Property="Effect">
+                        <Setter.Value>
+                            <BlurEffect Radius="11" />
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
-    <Grid>
+
+    <Grid MinHeight="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <WrapPanel Margin="0,0,0,16">
-            <materialDesign:Card Width="300" Margin="0,0,12,12" Padding="22" UniformCornerRadius="18" Background="White" materialDesign:ElevationAssist.Elevation="Dp2">
-                <StackPanel>
-                    <TextBlock Text="REGISTROS EXITOSOS" Foreground="#64748B" />
-                    <TextBlock Margin="0,10,0,0" Text="{Binding SuccessCount}" FontSize="28" FontWeight="Bold" />
-                </StackPanel>
-            </materialDesign:Card>
-            <materialDesign:Card Width="300" Margin="0,0,12,12" Padding="22" UniformCornerRadius="18" Background="White" materialDesign:ElevationAssist.Elevation="Dp2">
-                <StackPanel>
-                    <TextBlock Text="REGISTROS FALLIDOS" Foreground="#64748B" />
-                    <TextBlock Margin="0,10,0,0" Text="{Binding FailedCount}" FontSize="28" FontWeight="Bold" Foreground="#DC2626" />
-                </StackPanel>
-            </materialDesign:Card>
-            <materialDesign:Card Width="300" Margin="0,0,0,12" Padding="22" UniformCornerRadius="18" Background="White" materialDesign:ElevationAssist.Elevation="Dp2">
-                <StackPanel>
-                    <TextBlock Text="TRANSFERIDO TOTAL" Foreground="#64748B" />
-                    <TextBlock Margin="0,10,0,0" Text="{Binding TotalTransferredText}" FontSize="28" FontWeight="Bold" />
-                </StackPanel>
-            </materialDesign:Card>
-        </WrapPanel>
+        <StackPanel Margin="0,0,0,24"
+                    Style="{StaticResource LogsContentBlurStyle}">
+            <TextBlock Text="Gestor de Logs"
+                       FontSize="28"
+                       FontWeight="Bold"
+                       Foreground="#0F172A" />
+            <TextBlock Margin="0,6,0,0"
+                       Text="Visualiza resultados, errores y detalle por archivo en un solo lugar."
+                       FontSize="15"
+                       Foreground="#64748B" />
+        </StackPanel>
 
-        <materialDesign:Card Grid.Row="1" Padding="24" UniformCornerRadius="18" Background="White" materialDesign:ElevationAssist.Elevation="Dp2">
-            <StackPanel>
-                <DockPanel Margin="0,0,0,16">
+        <UniformGrid Grid.Row="1"
+                     Style="{StaticResource LogsContentBlurStyle}"
+                     Columns="3"
+                     Margin="0,0,0,22">
+            <materialDesign:Card Style="{StaticResource MetricCardStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="52"
+                            Height="52"
+                            Margin="0,0,14,0"
+                            Background="#E9FBF3"
+                            CornerRadius="18">
+                        <materialDesign:PackIcon Kind="CheckCircle"
+                                                 Width="22"
+                                                 Height="22"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="#10B981" />
+                    </Border>
+                    <StackPanel Grid.Column="1"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="REGISTROS EXITOSOS"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="#94A3B8" />
+                        <TextBlock Margin="0,4,0,0"
+                                   Text="{Binding SuccessCount}"
+                                   FontSize="25"
+                                   FontWeight="Bold"
+                                   Foreground="#1E293B" />
+                    </StackPanel>
+                </Grid>
+            </materialDesign:Card>
+
+            <materialDesign:Card Style="{StaticResource MetricCardStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="52"
+                            Height="52"
+                            Margin="0,0,14,0"
+                            Background="#FFF1F2"
+                            CornerRadius="18">
+                        <materialDesign:PackIcon Kind="Alert"
+                                                 Width="22"
+                                                 Height="22"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="#F43F5E" />
+                    </Border>
+                    <StackPanel Grid.Column="1"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="REGISTROS FALLIDOS"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="#94A3B8" />
+                        <TextBlock Margin="0,4,0,0"
+                                   Text="{Binding FailedCount}"
+                                   FontSize="25"
+                                   FontWeight="Bold"
+                                   Foreground="#1E293B" />
+                    </StackPanel>
+                </Grid>
+            </materialDesign:Card>
+
+            <materialDesign:Card Margin="0,0,0,18"
+                                 Padding="22"
+                                 Background="White"
+                                 UniformCornerRadius="28"
+                                 BorderThickness="0"
+                                 materialDesign:ElevationAssist.Elevation="Dp2">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="52"
+                            Height="52"
+                            Margin="0,0,14,0"
+                            Background="#EEF2FF"
+                            CornerRadius="18">
+                        <materialDesign:PackIcon Kind="Database"
+                                                 Width="22"
+                                                 Height="22"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="{StaticResource PrimaryHueMidBrush}" />
+                    </Border>
+                    <StackPanel Grid.Column="1"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="TRANSFERIDO TOTAL"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="#94A3B8" />
+                        <TextBlock Margin="0,4,0,0"
+                                   Text="{Binding TotalTransferredText}"
+                                   FontSize="25"
+                                   FontWeight="Bold"
+                                   Foreground="#1E293B" />
+                    </StackPanel>
+                </Grid>
+            </materialDesign:Card>
+        </UniformGrid>
+
+        <materialDesign:Card Grid.Row="2"
+                             Style="{StaticResource LogsContentBlurStyle}"
+                             Margin="10"
+                             UniformCornerRadius="30"
+                             Background="White"
+                             BorderThickness="0"
+                             materialDesign:ElevationAssist.Elevation="Dp2">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Margin="24,16,0,16">
                     <StackPanel DockPanel.Dock="Left">
-                        <TextBlock Text="Registro de eventos" FontSize="24" FontWeight="SemiBold" />
-                        <TextBlock Text="Monitorea ejecuciones, errores y volumen transferido." Foreground="#64748B" />
-                    </StackPanel>                  
+                        <TextBlock Text="Registro de eventos"
+                                   FontSize="23"
+                                   FontWeight="Bold"
+                                   Foreground="#1E293B" />
+                        <TextBlock Text="Monitorea ejecuciones, errores y volumen transferido."
+                                   Foreground="#64748B" />
+                    </StackPanel>
                 </DockPanel>
 
-                <controls:DataTableControl DataContext="{Binding TableViewModel}"
+                <controls:DataTableControl Grid.Row="1"
+                                           DataContext="{Binding TableViewModel}"
                                            ParentDataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                            Columns="{Binding DataContext.TableColumns, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-            </StackPanel>
+            </Grid>
         </materialDesign:Card>
 
-        <Border Grid.RowSpan="2"
-                Background="#990B1020"
+        <Border Grid.RowSpan="3"
+                Panel.ZIndex="60"
                 Visibility="{Binding IsLogDetailOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <Grid>
-                <materialDesign:Card Margin="16"
+            <Grid Margin="18">
+                <materialDesign:Card Margin="18"
                                      Padding="0"
-                                     HorizontalAlignment="Stretch"
+                                     HorizontalAlignment="Center"
                                      VerticalAlignment="Stretch"
-                                     MaxWidth="1100"
-                                     MaxHeight="760"
-                                     UniformCornerRadius="14"
+                                     MaxWidth="1120"
+                                     MaxHeight="780"
+                                     UniformCornerRadius="28"
                                      Background="White"
                                      materialDesign:ElevationAssist.Elevation="Dp4">
                     <Grid>
@@ -72,157 +214,205 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <DockPanel Margin="24,18,24,14" LastChildFill="False">
+                        <DockPanel Margin="26,20,26,14"
+                                   LastChildFill="False">
                             <StackPanel DockPanel.Dock="Left">
-                                <TextBlock Text="Detalle del Evento" FontSize="24" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding SelectedLog.Id, TargetNullValue=-}" Foreground="#64748B" />
+                                <TextBlock Text="Detalle del evento"
+                                           FontSize="24"
+                                           FontWeight="Bold"
+                                           Foreground="#1E293B" />
+                                <TextBlock Text="{Binding SelectedLog.Id, TargetNullValue=-}"
+                                           Foreground="#64748B" />
                             </StackPanel>
                             <Button DockPanel.Dock="Right"
                                     Command="{Binding CloseLogDetailCommand}"
-                                    Style="{StaticResource MaterialDesignToolButton}">
+                                    Style="{StaticResource AppToolButton}">
                                 <materialDesign:PackIcon Kind="Close" />
                             </Button>
                         </DockPanel>
 
-                        <Grid Grid.Row="1" Margin="24,0,24,0">
+                        <Grid Grid.Row="1"
+                              Margin="26,0,26,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
-                                <WrapPanel Grid.Row="0" Margin="0,0,0,12">
-                                    <Border Width="220" Padding="12" CornerRadius="10" Background="#F8FAFC" Margin="0,0,8,8">
-                                        <StackPanel>
-                                            <TextBlock Text="Estado" Foreground="#64748B" />
-                                            <TextBlock Text="{Binding SelectedLog.Status, TargetNullValue=-}" FontWeight="Bold" FontSize="16" />
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Width="220" Padding="12" CornerRadius="10" Background="#F8FAFC" Margin="0,0,8,8">
-                                        <StackPanel>
-                                            <TextBlock Text="Operacion" Foreground="#64748B" />
-                                            <TextBlock Text="{Binding SelectedLog.Operation, TargetNullValue=-}" FontWeight="SemiBold" />
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Width="220" Padding="12" CornerRadius="10" Background="#F8FAFC" Margin="0,0,8,8">
-                                        <StackPanel>
-                                            <TextBlock Text="Archivos" Foreground="#64748B" />
-                                            <TextBlock Text="{Binding SelectedLog.FilesTransferred, TargetNullValue=0}" FontWeight="SemiBold" />
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Width="220" Padding="12" CornerRadius="10" Background="#F8FAFC" Margin="0,0,8,8">
-                                        <StackPanel>
-                                            <TextBlock Text="Fecha / Hora" Foreground="#64748B" />
-                                            <TextBlock Text="{Binding SelectedLog.TimestampText, TargetNullValue=-}" FontWeight="SemiBold" />
-                                        </StackPanel>
-                                    </Border>
-                                </WrapPanel>
-
-                                <StackPanel Grid.Row="1">
-                                    <Border Padding="12" CornerRadius="10" Background="#FFFDF5" BorderBrush="#F5E7A1" BorderThickness="1" Margin="0,0,0,12">
-                                        <StackPanel>
-                                            <TextBlock Text="Mensaje" Foreground="#8A6D1C" FontWeight="SemiBold" />
-                                            <TextBlock Margin="0,8,0,0" Text="{Binding SelectedLog.Message, TargetNullValue=Sin mensaje disponible.}" TextWrapping="Wrap" />
-                                        </StackPanel>
-                                    </Border>
-
-                                    <Border Padding="12"
-                                            CornerRadius="10"
-                                            Background="#F8FAFC"
-                                            BorderBrush="#CBD5E1"
-                                            BorderThickness="1"
-                                            Margin="0,0,0,12"
-                                            Visibility="{Binding SelectedLog.Notes, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}, FallbackValue=Collapsed}">
-                                        <StackPanel>
-                                            <TextBlock Text="Notas del backup" Foreground="#334155" FontWeight="SemiBold" />
-                                            <TextBlock Margin="0,8,0,0"
-                                                       Text="{Binding SelectedLog.Notes}"
-                                                       Foreground="#475569"
-                                                       TextWrapping="Wrap" />
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-
-                                <Border Grid.Row="2" Padding="14" Background="#020617" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="10" MinHeight="100">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="*" />
-                                        </Grid.RowDefinitions>
-                                        
-                                        <Grid Grid.Row="0" Margin="0,0,0,16">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            
-                                            <StackPanel>
-                                                <TextBlock Text="DETALLE POR ARCHIVO"
-                                                           Foreground="#93C5FD"
-                                                           FontSize="13"
-                                                           FontWeight="Bold"
-                                                           FontFamily="Consolas" />
-                                                <TextBlock Text="Traza completa de ejecución línea por línea"
-                                                           Foreground="#94A3B8"
-                                                           Margin="0,6,0,0"
-                                                           FontSize="11" />
-                                            </StackPanel>
-                                            
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <TextBox Text="{Binding DetailSearchText, UpdateSourceTrigger=PropertyChanged}"
-                                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                                                         materialDesign:HintAssist.Hint="Filtrar en detalle"
-                                                         Width="350"
-                                                         Foreground="#E2E8F0"
-                                                         BorderBrush="#475569"
-                                                         materialDesign:HintAssist.Foreground="#94A3B8"
-                                                         materialDesign:TextFieldAssist.HasClearButton="True"
-                                                         VerticalAlignment="Center"
-                                                         Margin="0,0,16,0" />
-
-                                                <Button Command="{Binding OpenLogFileLocationCommand}"
-                                                        ToolTip="Abrir ubicación del log"
-                                                        IsEnabled="{Binding CanOpenLogFile}"
-                                                        Foreground="#93C5FD"
-                                                        Style="{StaticResource MaterialDesignToolButton}">
-                                                    <materialDesign:PackIcon Kind="FolderOpen" Width="22" Height="22" />
-                                                </Button>
-                                            </StackPanel>
-                                        </Grid>
-                                        
-                                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-                                            <ScrollViewer.Resources>
-                                                <Style TargetType="{x:Type ScrollBar}">
-                                                    <Setter Property="Background" Value="#E5E7EB" />
-                                                    <Setter Property="Foreground" Value="#9CA3AF" />
-                                                    <Setter Property="Width" Value="10" />
-                                                </Style>
-                                                <Style TargetType="{x:Type Thumb}">
-                                                    <Setter Property="Background" Value="#9CA3AF" />
-                                                    <Setter Property="BorderBrush" Value="#9CA3AF" />
-                                                </Style>
-                                            </ScrollViewer.Resources>
-                                            <TextBox Text="{Binding VisibleExecutionDetails, Mode=OneWay, TargetNullValue=Sin detalle disponible.}"
-                                                     IsReadOnly="True"
-                                                     BorderThickness="0"
-                                                     Background="Transparent"
-                                                     FontFamily="Consolas"
-                                                     Foreground="#E2E8F0"
-                                                     FontSize="12"
-                                                     TextWrapping="NoWrap"
-                                                     AcceptsReturn="True"
-                                                     ScrollViewer.CanContentScroll="True" />
-                                        </ScrollViewer>
-                                    </Grid>
+                            <WrapPanel Grid.Row="0"
+                                       Margin="0,0,0,14">
+                                <Border Width="220"
+                                        Padding="14"
+                                        Margin="0,0,8,8"
+                                        Background="#F8FAFC"
+                                        CornerRadius="16">
+                                    <StackPanel>
+                                        <TextBlock Text="Estado"
+                                                   Foreground="#64748B" />
+                                        <TextBlock Text="{Binding SelectedLog.Status, TargetNullValue=-}"
+                                                   FontWeight="Bold"
+                                                   FontSize="16" />
+                                    </StackPanel>
                                 </Border>
+                                <Border Width="220"
+                                        Padding="14"
+                                        Margin="0,0,8,8"
+                                        Background="#F8FAFC"
+                                        CornerRadius="16">
+                                    <StackPanel>
+                                        <TextBlock Text="Operacion"
+                                                   Foreground="#64748B" />
+                                        <TextBlock Text="{Binding SelectedLog.Operation, TargetNullValue=-}"
+                                                   FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Width="220"
+                                        Padding="14"
+                                        Margin="0,0,8,8"
+                                        Background="#F8FAFC"
+                                        CornerRadius="16">
+                                    <StackPanel>
+                                        <TextBlock Text="Archivos"
+                                                   Foreground="#64748B" />
+                                        <TextBlock Text="{Binding SelectedLog.FilesTransferred, TargetNullValue=0}"
+                                                   FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Width="220"
+                                        Padding="14"
+                                        Margin="0,0,8,8"
+                                        Background="#F8FAFC"
+                                        CornerRadius="16">
+                                    <StackPanel>
+                                        <TextBlock Text="Fecha / Hora"
+                                                   Foreground="#64748B" />
+                                        <TextBlock Text="{Binding SelectedLog.TimestampText, TargetNullValue=-}"
+                                                   FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Border>
+                            </WrapPanel>
+
+                            <StackPanel Grid.Row="1">
+                                <Border Padding="14"
+                                        Margin="0,0,0,12"
+                                        Background="#FFFDF5"
+                                        BorderBrush="#F5E7A1"
+                                        BorderThickness="1"
+                                        CornerRadius="16">
+                                    <StackPanel>
+                                        <TextBlock Text="Mensaje"
+                                                   Foreground="#8A6D1C"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Margin="0,8,0,0"
+                                                   Text="{Binding SelectedLog.Message, TargetNullValue=Sin mensaje disponible.}"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Padding="14"
+                                        Margin="0,0,0,12"
+                                        Background="#F8FAFC"
+                                        BorderBrush="#CBD5E1"
+                                        BorderThickness="1"
+                                        CornerRadius="16"
+                                        Visibility="{Binding SelectedLog.Notes, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}, FallbackValue=Collapsed}">
+                                    <StackPanel>
+                                        <TextBlock Text="Notas del backup"
+                                                   Foreground="#334155"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Margin="0,8,0,0"
+                                                   Text="{Binding SelectedLog.Notes}"
+                                                   Foreground="#475569"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <Border Grid.Row="2"
+                                    Padding="16"
+                                    Background="#020617"
+                                    BorderBrush="#1E293B"
+                                    BorderThickness="1"
+                                    CornerRadius="18"
+                                    MinHeight="120">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+
+                                    <Grid Grid.Row="0"
+                                          Margin="0,0,0,16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel>
+                                            <TextBlock Text="DETALLE POR ARCHIVO"
+                                                       Foreground="#93C5FD"
+                                                       FontSize="13"
+                                                       FontWeight="Bold"
+                                                       FontFamily="Consolas" />
+                                            <TextBlock Text="Traza completa de ejecucion linea por linea"
+                                                       Foreground="#94A3B8"
+                                                       Margin="0,6,0,0"
+                                                       FontSize="11" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1"
+                                                    Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <TextBox Text="{Binding DetailSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource AppOutlinedTextBox}"
+                                                     materialDesign:HintAssist.Hint="Filtrar en detalle"
+                                                     Width="350"
+                                                     Foreground="#E2E8F0"
+                                                     BorderBrush="#475569"
+                                                     materialDesign:HintAssist.Foreground="#94A3B8"
+                                                     materialDesign:TextFieldAssist.HasClearButton="True"
+                                                     VerticalAlignment="Center"
+                                                     Margin="0,0,16,0" />
+
+                                            <Button Command="{Binding OpenLogFileLocationCommand}"
+                                                    ToolTip="Abrir ubicacion del log"
+                                                    IsEnabled="{Binding CanOpenLogFile}"
+                                                    Foreground="#93C5FD"
+                                                    Style="{StaticResource AppToolButton}">
+                                                <materialDesign:PackIcon Kind="FolderOpen"
+                                                                         Width="22"
+                                                                         Height="22" />
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <ScrollViewer Grid.Row="1"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Auto">
+                                        <TextBox Text="{Binding VisibleExecutionDetails, Mode=OneWay, TargetNullValue=Sin detalle disponible.}"
+                                                 IsReadOnly="True"
+                                                 BorderThickness="0"
+                                                 Background="Transparent"
+                                                 FontFamily="Consolas"
+                                                 Foreground="#E2E8F0"
+                                                 FontSize="12"
+                                                 TextWrapping="NoWrap"
+                                                 AcceptsReturn="True"
+                                                 ScrollViewer.CanContentScroll="True" />
+                                    </ScrollViewer>
+                                </Grid>
+                            </Border>
                         </Grid>
 
-                        <Border Grid.Row="2" Background="#F8FAFC" CornerRadius="0,0,14,14">
-                            <WrapPanel Margin="24,14" HorizontalAlignment="Right">
+                        <Border Grid.Row="2"
+                                Background="#F8FAFC"
+                                CornerRadius="0,0,28,28">
+                            <WrapPanel Margin="26,14"
+                                       HorizontalAlignment="Right">
                                 <Button MinWidth="120"
                                         Height="40"
                                         Command="{Binding CloseLogDetailCommand}"
-                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                        Style="{StaticResource AppRaisedButton}"
                                         Content="Cerrar" />
                             </WrapPanel>
                         </Border>

@@ -3,114 +3,102 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:config="clr-namespace:app_ftp.Config"
+        xmlns:controls="clr-namespace:app_ftp.Presentacion.Shared.Controls.Notifications"
         xmlns:views="clr-namespace:app_ftp.Presentacion.Views"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="BaaSService"
-        Width="1000"
-        Height="760"
-        Background="{StaticResource SkyBackgroundBrush}"
+        Width="1220"
+        Height="850"
+        MinWidth="1080"
+        MinHeight="760"
+        Background="{StaticResource WindowBackgroundBrush}"
         TextElement.FontSize="14"
         TextElement.Foreground="#0F172A"
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <Style x:Key="NavButtonStyle" TargetType="Button">
-            <Setter Property="Margin" Value="0,0,0,12" />
+            <Setter Property="Margin" Value="0,0,0,10" />
             <Setter Property="Padding" Value="16,14" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="MinHeight" Value="56" />
-            <Setter Property="Foreground" Value="{StaticResource SidebarSurfaceBrush}" />
-            <Setter Property="Background" Value="#F8FAFF" />
-            <Setter Property="BorderBrush" Value="#E6ECFF" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="MinHeight" Value="48" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="#42526B" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="NavBorder"
                                 Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8"
-                                SnapsToDevicePixels="True">
-                            <ContentPresenter x:Name="NavContent"
-                                              Margin="{TemplateBinding Padding}"
+                                CornerRadius="18">
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="NavBorder" Property="Background" Value="#EEF3FF" />
-                                <Setter TargetName="NavBorder" Property="BorderBrush" Value="#C7D2FE" />
+                                <Setter TargetName="NavBorder" Property="Background" Value="#F3F5FC" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="NavBorder" Property="Background" Value="#E0E7FF" />
-                                <Setter TargetName="NavBorder" Property="BorderBrush" Value="#A5B4FC" />
+                                <Setter TargetName="NavBorder" Property="Background" Value="#EAEEFA" />
                             </Trigger>
-                            <MultiTrigger>
-                                <MultiTrigger.Conditions>
-                                    <Condition Property="Tag" Value="True" />
-                                    <Condition Property="IsMouseOver" Value="True" />
-                                </MultiTrigger.Conditions>
-                                <Setter TargetName="NavBorder" Property="Background" Value="#23358F" />
-                                <Setter TargetName="NavBorder" Property="BorderBrush" Value="#8FA2FF" />
-                                <Setter Property="Foreground" Value="#FFFFFF" />
-                                <Setter TargetName="NavContent" Property="Opacity" Value="1" />
-                            </MultiTrigger>
-                            <MultiTrigger>
-                                <MultiTrigger.Conditions>
-                                    <Condition Property="Tag" Value="True" />
-                                    <Condition Property="IsPressed" Value="True" />
-                                </MultiTrigger.Conditions>
-                                <Setter TargetName="NavBorder" Property="Background" Value="#1C2B75" />
-                                <Setter TargetName="NavBorder" Property="BorderBrush" Value="#A8B6FF" />
-                                <Setter Property="Foreground" Value="#FFFFFF" />
-                                <Setter TargetName="NavContent" Property="Opacity" Value="1" />
-                            </MultiTrigger>
+                            <Trigger Property="Tag" Value="True">
+                                <Setter TargetName="NavBorder" Property="Background" Value="{StaticResource PrimaryHueMidBrush}" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
-        <Style x:Key="MetricCardStyle" TargetType="materialDesign:Card">
-            <Setter Property="Margin" Value="0,0,16,16" />
-            <Setter Property="Padding" Value="22" />
-            <Setter Property="Background" Value="White" />
-            <Setter Property="UniformCornerRadius" Value="18" />
-            <Setter Property="materialDesign:ElevationAssist.Elevation" Value="Dp2" />
-        </Style>
-
-        <Style x:Key="SectionCardStyle" TargetType="materialDesign:Card" BasedOn="{StaticResource MetricCardStyle}">
-            <Setter Property="Margin" Value="0" />
-            <Setter Property="Padding" Value="24" />
+        <Style x:Key="NavIconContainerStyle" TargetType="Border">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Background" Value="#F1F5F9" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Background" Value="#FFFFFF1F" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="NavLabelStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-            <Style.Triggers>
-                <MultiDataTrigger>
-                    <MultiDataTrigger.Conditions>
-                        <Condition Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=Button}}" Value="True" />
-                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True" />
-                    </MultiDataTrigger.Conditions>
-                    <Setter Property="Foreground" Value="#16306B" />
-                </MultiDataTrigger>
-            </Style.Triggers>
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
+        <Style x:Key="SidebarModalBackdropStyle" TargetType="Border">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsAnyModalOpen}" Value="True">
+                    <Setter Property="Effect">
+                        <Setter.Value>
+                            <BlurEffect Radius="8" />
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="240" />
+            <ColumnDefinition Width="222" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0" Background="{StaticResource SidebarBrush}">
-            <Grid Margin="20">
+        <Border Grid.Column="0"
+                Style="{StaticResource SidebarModalBackdropStyle}"
+                Background="{StaticResource SidebarBrush}"
+                BorderBrush="{StaticResource AppPanelBorderBrush}"
+                BorderThickness="0,0,1,0">
+            <Grid Margin="18,20,18,18">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -119,202 +107,167 @@
 
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <Border Width="52" Height="52" CornerRadius="16" Background="{StaticResource PrimaryHueMidBrush}">
+                        <Border Width="30"
+                                Height="30"
+                                Background="{StaticResource PrimaryHueMidBrush}"
+                                CornerRadius="10">
                             <materialDesign:PackIcon Kind="CloudUploadOutline"
-                                                     Width="26"
-                                                     Height="26"
+                                                     Width="16"
+                                                     Height="16"
                                                      HorizontalAlignment="Center"
                                                      VerticalAlignment="Center"
                                                      Foreground="White" />
                         </Border>
-                        <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="BaaSService" FontSize="24" FontWeight="SemiBold"/>
-                            <TextBlock Text="Backup as a Service" FontFamily="Consolas" FontSize="12" Foreground="{StaticResource SidebarMutedBrush}" />
+                        <StackPanel Margin="10,0,0,0"
+                                    VerticalAlignment="Center">
+                            <TextBlock FontSize="15"
+                                       FontWeight="Bold">
+                                <Run Text="BaaS" />
+                                <Run Text="Service" Foreground="{StaticResource PrimaryHueMidBrush}" />
+                            </TextBlock>
+                            <TextBlock Text="Servicio Backup"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource SidebarMutedBrush}" />
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>
 
-                <StackPanel Grid.Row="1" Margin="0,34,0,0">
-                    <TextBlock Margin="4,0,0,12"
+                <StackPanel Grid.Row="1"
+                            Margin="0,34,0,0">
+                    <TextBlock Margin="6,0,0,12"
                                Text="NAVEGACION"
                                FontSize="11"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource SidebarMutedBrush}" />
+
                     <Button Style="{StaticResource NavButtonStyle}"
                             Command="{Binding ShowDashboardCommand}"
-                            Tag="{Binding IsDashboardSelected}"
-                            Background="{Binding DashboardButtonBackground}"
-                            BorderBrush="{Binding DashboardButtonBorderBrush}"
-                            Foreground="{Binding DashboardButtonForeground}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Border Width="{Binding DashboardButtonAccentWidth}"
-                                    Margin="0,2,12,2"
-                                    Background="{Binding DashboardButtonAccentBrush}"
-                                    CornerRadius="3" />
-                            <Border Grid.Column="1"
-                                    Width="32"
-                                    Height="32"
-                                    CornerRadius="10"
-                                    Background="{Binding DashboardIconBackground}"
-                                    BorderBrush="{Binding DashboardIconBorderBrush}"
-                                    BorderThickness="1">
-                                <materialDesign:PackIcon Kind="ViewDashboardOutline"
-                                                         Width="18"
-                                                         Height="18"
+                            Tag="{Binding IsDashboardSelected}">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource NavIconContainerStyle}">
+                                <materialDesign:PackIcon Kind="PlayCircle"
+                                                         Width="14"
+                                                         Height="14"
                                                          HorizontalAlignment="Center"
                                                          VerticalAlignment="Center"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                             </Border>
                             <TextBlock Text="Ejecutar"
-                                       Grid.Column="2"
-                                       Margin="12,0,0,0"
-                                       Style="{StaticResource NavLabelStyle}"
-                                       VerticalAlignment="Center"
-                                       FontWeight="SemiBold" />
-                        </Grid>
+                                       Style="{StaticResource NavLabelStyle}" />
+                        </StackPanel>
                     </Button>
+
                     <Button Style="{StaticResource NavButtonStyle}"
                             Command="{Binding ShowConnectionsCommand}"
-                            Tag="{Binding IsConnectionsSelected}"
-                            Background="{Binding ConnectionsButtonBackground}"
-                            BorderBrush="{Binding ConnectionsButtonBorderBrush}"
-                            Foreground="{Binding ConnectionsButtonForeground}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Border Width="{Binding ConnectionsButtonAccentWidth}"
-                                    Margin="0,2,12,2"
-                                    Background="{Binding ConnectionsButtonAccentBrush}"
-                                    CornerRadius="3" />
-                            <Border Grid.Column="1"
-                                    Width="32"
-                                    Height="32"
-                                    CornerRadius="10"
-                                    Background="{Binding ConnectionsIconBackground}"
-                                    BorderBrush="{Binding ConnectionsIconBorderBrush}"
-                                    BorderThickness="1">
-                                <materialDesign:PackIcon Kind="LanConnect"
-                                                         Width="18"
-                                                         Height="18"
+                            Tag="{Binding IsConnectionsSelected}">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource NavIconContainerStyle}">
+                                <materialDesign:PackIcon Kind="PowerPlug"
+                                                         Width="14"
+                                                         Height="14"
                                                          HorizontalAlignment="Center"
                                                          VerticalAlignment="Center"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                             </Border>
                             <TextBlock Text="Conexiones"
-                                       Grid.Column="2"
-                                       Margin="12,0,0,0"
-                                       Style="{StaticResource NavLabelStyle}"
-                                       VerticalAlignment="Center"
-                                       FontWeight="SemiBold" />
-                        </Grid>
+                                       Style="{StaticResource NavLabelStyle}" />
+                        </StackPanel>
                     </Button>
+
                     <Button Style="{StaticResource NavButtonStyle}"
                             Command="{Binding ShowLogsCommand}"
-                            Tag="{Binding IsLogsSelected}"
-                            Background="{Binding LogsButtonBackground}"
-                            BorderBrush="{Binding LogsButtonBorderBrush}"
-                            Foreground="{Binding LogsButtonForeground}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Border Width="{Binding LogsButtonAccentWidth}"
-                                    Margin="0,2,12,2"
-                                    Background="{Binding LogsButtonAccentBrush}"
-                                    CornerRadius="3" />
-                            <Border Grid.Column="1"
-                                    Width="32"
-                                    Height="32"
-                                    CornerRadius="10"
-                                    Background="{Binding LogsIconBackground}"
-                                    BorderBrush="{Binding LogsIconBorderBrush}"
-                                    BorderThickness="1">
-                                <materialDesign:PackIcon Kind="TextBoxSearchOutline"
-                                                         Width="18"
-                                                         Height="18"
+                            Tag="{Binding IsLogsSelected}">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource NavIconContainerStyle}">
+                                <materialDesign:PackIcon Kind="ChevronRight"
+                                                         Width="14"
+                                                         Height="14"
                                                          HorizontalAlignment="Center"
                                                          VerticalAlignment="Center"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                             </Border>
                             <TextBlock Text="Gestor de Logs"
-                                       Grid.Column="2"
-                                       Margin="12,0,0,0"
-                                       Style="{StaticResource NavLabelStyle}"
-                                       VerticalAlignment="Center"
-                                       FontWeight="SemiBold" />
-                        </Grid>
+                                       Style="{StaticResource NavLabelStyle}" />
+                        </StackPanel>
                     </Button>
-                    
                 </StackPanel>
 
                 <StackPanel Grid.Row="2">
-                    <materialDesign:Card Background="{StaticResource SidebarSurfaceBrush}"
-                                         UniformCornerRadius="18"
-                                         Padding="18"
-                                         materialDesign:ElevationAssist.Elevation="Dp1">
+                    <Border Padding="18"
+                            Background="{StaticResource SidebarSurfaceBrush}"
+                            CornerRadius="24">
                         <StackPanel>
-                            <TextBlock Text="Proteccion local" FontWeight="SemiBold" Foreground="White" />
+                            <TextBlock Text="Proteccion Local"
+                                       FontWeight="SemiBold"
+                                       Foreground="White" />
                             <TextBlock Margin="0,8,0,0"
-                                       Text="Credenciales, configuraciones y logs persisten en AppData con proteccion local."
-                                       Foreground="{StaticResource SidebarMutedBrush}"
+                                       Text="Credenciales y configuraciones persisten cifradas en AppData."
+                                       Foreground="{StaticResource SidebarTextBrush}"
+                                       FontSize="11"
                                        TextWrapping="Wrap" />
+                            <StackPanel Margin="0,14,0,0"
+                                        Orientation="Horizontal">
+                                <Ellipse Width="8"
+                                         Height="8"
+                                         Fill="#10B981"
+                                         Margin="0,0,6,0" />
+                                <TextBlock Text="Verificado"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Foreground="#86EFAC" />
+                            </StackPanel>
                         </StackPanel>
-                    </materialDesign:Card>
+                    </Border>
 
-                    <StackPanel Margin="0,16,0,0">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <TextBlock Text="{Binding AppVersion}" Foreground="{StaticResource SidebarMutedBrush}" VerticalAlignment="Center" FontSize="12" />
-                            <Button Margin="12,0,0,0"
-                                    Style="{StaticResource MaterialDesignOutlinedButton}"
-                                    Padding="8,2"
+                    <StackPanel Margin="0,14,0,0"
+                                HorizontalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding AppVersion}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource SidebarMutedBrush}"
+                                       VerticalAlignment="Center" />
+                            <Button Margin="10,0,0,0"
                                     Height="28"
-                                    FontSize="11"
+                                    Padding="10,0"
+                                    FontSize="10"
+                                    Style="{StaticResource AppPillButton}"
                                     Content="{Binding InstallUpdateButtonText}"
-                                    Foreground="#4CAF50"
-                                    BorderBrush="#4CAF50"
+                                    Foreground="#16A34A"
+                                    BorderBrush="#BBF7D0"
+                                    Background="#F0FDF4"
                                     Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BooleanToVisibilityConverter}}"
                                     Command="{Binding InstallUpdateCommand}" />
                         </StackPanel>
 
-                        <Border Margin="0,12,0,0"
+                        <Border Margin="0,10,0,0"
                                 Padding="12"
-                                CornerRadius="12"
                                 Background="#F8FAFF"
-                                BorderBrush="#E2E8F0"
+                                BorderBrush="{StaticResource AppPanelBorderBrush}"
                                 BorderThickness="1"
+                                CornerRadius="16"
                                 Visibility="{Binding IsUpdateProgressVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <StackPanel>
                                 <DockPanel LastChildFill="False">
                                     <TextBlock Text="{Binding UpdateDownloadStatus}"
-                                               Foreground="{StaticResource SidebarSurfaceBrush}"
                                                FontSize="11"
                                                FontWeight="SemiBold"
+                                               Foreground="#1E293B"
                                                TextWrapping="Wrap" />
                                     <TextBlock DockPanel.Dock="Right"
                                                Margin="10,0,0,0"
                                                Text="{Binding UpdateDownloadProgressText}"
-                                               Foreground="{StaticResource SidebarMutedBrush}"
                                                FontSize="11"
-                                               FontWeight="SemiBold" />
+                                               Foreground="{StaticResource SidebarMutedBrush}" />
                                 </DockPanel>
                                 <ProgressBar Margin="0,10,0,0"
-                                             Height="7"
+                                             Height="6"
                                              Minimum="0"
                                              Maximum="100"
                                              Value="{Binding UpdateDownloadProgress}"
                                              IsIndeterminate="{Binding IsUpdateProgressIndeterminate}"
                                              Foreground="{StaticResource PrimaryHueMidBrush}"
-                                             Background="#E2E8F0" />
+                                             Background="#E5E7EB" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -322,179 +275,50 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Column="1" Margin="20,10">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-            <Grid Grid.Row="1">
-                <ScrollViewer VerticalScrollBarVisibility="Hidden"
-                              HorizontalScrollBarVisibility="Disabled"
-                              CanContentScroll="False"
-                              Visibility="{Binding IsDashboardVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <ContentControl Content="{Binding Dashboard}">
+
+        <Grid Grid.Column="1"
+              Margin="32,28,30,26"
+              PreviewMouseWheel="MainContentContainer_PreviewMouseWheel">
+            <ScrollViewer x:Name="MainContentScrollViewer"
+                          VerticalScrollBarVisibility="Hidden"
+                          HorizontalScrollBarVisibility="Disabled"
+                          CanContentScroll="True"
+                          PanningMode="VerticalOnly">
+                <Grid>
+                    <ContentControl Visibility="{Binding IsDashboardVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Content="{Binding Dashboard}">
                         <ContentControl.ContentTemplate>
                             <DataTemplate>
-                                <views:DashboardView />
+                                <views:DashboardView/>
                             </DataTemplate>
                         </ContentControl.ContentTemplate>
                     </ContentControl>
-                </ScrollViewer>
 
-                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              CanContentScroll="False"
-                              Visibility="{Binding IsConnectionsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <ContentControl Content="{Binding ConnectionsSection}">
+                    <ContentControl Visibility="{Binding IsConnectionsVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Content="{Binding ConnectionsSection}">
                         <ContentControl.ContentTemplate>
                             <DataTemplate>
                                 <views:ConnectionsView />
                             </DataTemplate>
                         </ContentControl.ContentTemplate>
                     </ContentControl>
-                </ScrollViewer>
 
-                <ContentControl Visibility="{Binding IsLogsVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Content="{Binding LogsSection}">
-                    <ContentControl.ContentTemplate>
-                        <DataTemplate>
-                            <views:LogsView />
-                        </DataTemplate>
-                    </ContentControl.ContentTemplate>
-                </ContentControl>
-            </Grid>
+                    <ContentControl Visibility="{Binding IsLogsVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Content="{Binding LogsSection}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate>
+                                <views:LogsView />
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                </Grid>
+            </ScrollViewer>
         </Grid>
 
-        <ItemsControl Grid.Column="1"
-                      Margin="0,0,0,24"
-                      Panel.ZIndex="20"
-                      HorizontalAlignment="Right"
-                      VerticalAlignment="Bottom"
-                      ItemsSource="{Binding ToastNotifications}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <StackPanel />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Border Margin="0,0,0,12"
-                            Padding="16,12"
-                            MaxWidth="520"
-                            CornerRadius="16"
-                            BorderThickness="1"
-                            Background="#F8FAFC"
-                            BorderBrush="#CBD5E1">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="#EEF8F1" />
-                                <Setter Property="BorderBrush" Value="#B6E0C2" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsWarning}" Value="True">
-                                        <Setter Property="Background" Value="#FFF8E8" />
-                                        <Setter Property="BorderBrush" Value="#F7D58A" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding IsError}" Value="True">
-                                        <Setter Property="Background" Value="#FFF1F1" />
-                                        <Setter Property="BorderBrush" Value="#F4CACA" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <DockPanel LastChildFill="True">
-                            <Border DockPanel.Dock="Left"
-                                    Width="34"
-                                    Height="34"
-                                    Margin="0,0,12,0"
-                                    CornerRadius="10"
-                                    Background="#DCFCE7">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="#DCFCE7" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsWarning}" Value="True">
-                                                <Setter Property="Background" Value="#FEF3C7" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsError}" Value="True">
-                                                <Setter Property="Background" Value="#FEE2E2" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <materialDesign:PackIcon Width="18"
-                                                         Height="18"
-                                                         HorizontalAlignment="Center"
-                                                         VerticalAlignment="Center"
-                                                         Foreground="#15803D">
-                                    <materialDesign:PackIcon.Style>
-                                        <Style TargetType="materialDesign:PackIcon">
-                                            <Setter Property="Kind" Value="CheckCircleOutline" />
-                                            <Setter Property="Foreground" Value="#15803D" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsWarning}" Value="True">
-                                                    <Setter Property="Kind" Value="AlertOutline" />
-                                                    <Setter Property="Foreground" Value="#B45309" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsError}" Value="True">
-                                                    <Setter Property="Kind" Value="AlertCircleOutline" />
-                                                    <Setter Property="Foreground" Value="#B91C1C" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </materialDesign:PackIcon.Style>
-                                </materialDesign:PackIcon>
-                            </Border>
-
-                            <Button DockPanel.Dock="Right"
-                                    Margin="12,0,0,0"
-                                    Padding="0"
-                                    Width="32"
-                                    Height="32"
-                                    Command="{Binding DataContext.DismissToastCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    CommandParameter="{Binding}"
-                                    Style="{StaticResource MaterialDesignToolButton}">
-                                <materialDesign:PackIcon Kind="Close"
-                                                         Width="16"
-                                                         Height="16">
-                                    <materialDesign:PackIcon.Style>
-                                        <Style TargetType="materialDesign:PackIcon">
-                                            <Setter Property="Foreground" Value="#15803D" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsWarning}" Value="True">
-                                                    <Setter Property="Foreground" Value="#B45309" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsError}" Value="True">
-                                                    <Setter Property="Foreground" Value="#B91C1C" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </materialDesign:PackIcon.Style>
-                                </materialDesign:PackIcon>
-                            </Button>
-
-                            <TextBlock VerticalAlignment="Center"
-                                       Text="{Binding Message}"
-                                       TextWrapping="Wrap"
-                                       FontWeight="SemiBold"
-                                       Foreground="#166534">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="#166534" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsWarning}" Value="True">
-                                                <Setter Property="Foreground" Value="#92400E" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsError}" Value="True">
-                                                <Setter Property="Foreground" Value="#991B1B" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </DockPanel>
-                    </Border>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <controls:EstNotificationHost Grid.Column="1"
+                                      Margin="0,0,24,24"
+                                      Panel.ZIndex="20"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Bottom"
+                                      AlertService="{Binding AlertService}" />
     </Grid>
 </Window>

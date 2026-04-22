@@ -6,7 +6,7 @@
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
         <!-- BotÃ³n Cancelar -->
         <Button x:Name="CancelButton"
-                Style="{StaticResource MaterialDesignOutlinedButton}"
+                Style="{StaticResource AppOutlinedButton}"
                 Height="38"
                 Padding="24,0"
                 Margin="0,0,12,0"
@@ -21,7 +21,7 @@
 
         <!-- BotÃ³n Primario (Guardar/Aceptar) -->
         <Button x:Name="PrimaryButton"
-                Style="{StaticResource MaterialDesignRaisedButton}"
+                Style="{StaticResource AppRaisedButton}"
                 Foreground="White"
                 Height="38"
                 Padding="24,0"

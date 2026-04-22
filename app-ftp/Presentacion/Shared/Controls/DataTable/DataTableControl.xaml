@@ -139,10 +139,10 @@
         </Grid.RowDefinitions>
 
         <!-- Barra de bÃºsqueda y acciones -->
-        <Border Grid.Row="0" 
-                Background="{DynamicResource MaterialDesignCardBackground}" 
-                Padding="15,10"
-                BorderBrush="{DynamicResource MaterialDesignDivider}"
+        <Border Grid.Row="0"
+                Background="#F8FAFF"
+                Padding="16,12"
+                BorderBrush="#E7EBFA"
                 BorderThickness="0,0,0,1">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -170,10 +170,10 @@
                          materialDesign:TextFieldAssist.LeadingIcon="Magnify"
                          materialDesign:HintAssist.Hint="Buscar en tabla..."
                          materialDesign:TextFieldAssist.HasClearButton="True"
-                         Width="400"
+                         Width="360"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Center"
-                         Style="{StaticResource MaterialDesignFloatingHintTextBox}"/>
+                         Style="{StaticResource AppFloatingTextBox}"/>
             </Grid>
         </Border>
 
@@ -194,7 +194,7 @@
                   SelectionMode="Single"
                   SelectionUnit="FullRow"
                   BeginningEdit="MainDataGrid_BeginningEdit"
-                  Background="{DynamicResource MaterialDesignCardBackground}"
+                  Background="White"
                   GridLinesVisibility="None"
                   Margin="0,0,0,0"
                   materialDesign:DataGridAssist.CellPadding="8,0"
@@ -238,16 +238,16 @@
                     <Setter Property="VerticalAlignment" Value="Center"/>
                     <Setter Property="VerticalContentAlignment" Value="Center"/>
                     <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                    <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}"/>
+                    <Setter Property="BorderBrush" Value="#EEF2FF"/>
                     <Setter Property="Background" Value="Transparent"/>
                     <Setter Property="DetailsVisibility" Value="Collapsed"/>
                     <Setter Property="MinHeight" Value="48"/>
                     <Style.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="{DynamicResource MaterialDesignSelection}"/>
+                            <Setter Property="Background" Value="#F8FAFF"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Background" Value="{DynamicResource MaterialDesignSelection}"/>
+                            <Setter Property="Background" Value="#EEF2FF"/>
                         </Trigger>
                         <!-- Resaltar fila cuando está en modo edición -->
                         <DataTrigger Binding="{Binding Item.IsEditing}" Value="True">
@@ -269,7 +269,7 @@
                     <Setter Property="FontWeight" Value="SemiBold"/>
                     <Setter Property="FontSize" Value="13"/>
                     <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
-                    <Setter Property="Background" Value="{DynamicResource MaterialDesignCardBackground}"/>
+                    <Setter Property="Background" Value="#F8FAFF"/>
                     <Setter Property="HorizontalContentAlignment" Value="Left"/>
                     <Setter Property="Padding" Value="12,10"/>
                 </Style>
@@ -279,22 +279,22 @@
         <!-- Fila de totales -->
         <Border Grid.Row="2"
                 x:Name="TotalsRow"
-                Background="{DynamicResource MaterialDesignCardBackground}"                
-                BorderBrush="{DynamicResource MaterialDesignDivider}"
+                Background="#F8FAFF"
+                BorderBrush="#E7EBFA"
                 BorderThickness="0,2,0,0"
                 Padding="5,5,0,0"
                 Margin="0,0,0,0"
                 Visibility="{Binding ShowTotals, Converter={StaticResource BooleanToVisibilityConverter}}">
             <Grid x:Name="TotalsGrid" 
                   Height="55"
-                  Background="{DynamicResource MaterialDesignCardBackground}"/>
+                  Background="#F8FAFF"/>
         </Border>
 
         <!-- Controles de paginación -->
-        <Border Grid.Row="3" 
-                Background="{DynamicResource MaterialDesignCardBackground}"
+        <Border Grid.Row="3"
+                Background="#F8FAFF"
                 Padding="15,10"
-                BorderBrush="{DynamicResource MaterialDesignDivider}"
+                BorderBrush="#E7EBFA"
                 BorderThickness="0,1,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -316,7 +316,7 @@
                               Width="80"
                               Height="50"
                               VerticalAlignment="Center"
-                              Style="{StaticResource MaterialDesignOutlinedComboBox}"/>
+                              Style="{StaticResource AppOutlinedComboBox}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" 
               Orientation="Horizontal" 

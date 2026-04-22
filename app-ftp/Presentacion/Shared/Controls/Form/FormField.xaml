@@ -9,7 +9,7 @@
     
     <Grid>
         <TextBox x:Name="TextBoxControl"
-                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                 Style="{StaticResource AppFloatingTextBox}"
                  FontSize="13"
                  materialDesign:HintAssist.Hint="{Binding DisplayLabel, RelativeSource={RelativeSource AncestorType=UserControl}}"
                  materialDesign:HintAssist.HelperText="{Binding HelperText, RelativeSource={RelativeSource AncestorType=UserControl}}"

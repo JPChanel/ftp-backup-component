@@ -60,7 +60,13 @@ public class LogsViewModel : SectionViewModelBase
     public bool IsLogDetailOpen
     {
         get => _isLogDetailOpen;
-        set => SetProperty(ref _isLogDetailOpen, value);
+        set
+        {
+            if (SetProperty(ref _isLogDetailOpen, value))
+            {
+                Parent.RaiseModalOverlayState();
+            }
+        }
     }
 
     public string DetailSearchText

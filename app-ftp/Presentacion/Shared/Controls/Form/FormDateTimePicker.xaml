@@ -18,7 +18,7 @@
             <!-- DatePicker -->
             <DatePicker x:Name="DatePickerControl"
                         Grid.Column="0"
-                        Style="{StaticResource MaterialDesignFloatingHintDatePicker}"
+                        Style="{StaticResource AppFloatingDatePicker}"
                         FontSize="13"
                         materialDesign:HintAssist.Hint="{Binding DisplayLabel, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         SelectedDate="{Binding DateValue, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}"
@@ -29,7 +29,7 @@
             <!-- TimePicker -->
             <materialDesign:TimePicker x:Name="TimePickerControl"
                                        Grid.Column="2"
-                                       Style="{StaticResource MaterialDesignFloatingHintTimePicker}"
+                                       Style="{StaticResource AppFloatingTimePicker}"
                                        FontSize="13"
                                        materialDesign:HintAssist.Hint="Hora"
                                        Width="80"

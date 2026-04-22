@@ -64,7 +64,7 @@ public partial class DataTableViewModel<T> : ObservableObject, IDataTableViewMod
     /// TamaÃ±o de pÃ¡gina
     /// </summary>
     [ObservableProperty]
-    private int _pageSize = 50;
+    private int _pageSize = 10;
 
     /// <summary>
     /// Total de pÃ¡ginas

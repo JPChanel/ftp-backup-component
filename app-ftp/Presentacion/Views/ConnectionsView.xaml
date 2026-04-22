@@ -5,25 +5,52 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d">
-    <Grid>
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel>
-                <DockPanel Margin="0,0,0,20">
-                    <StackPanel DockPanel.Dock="Left">
-                        <TextBlock Text="Gestion de Conexiones" FontSize="28" FontWeight="SemiBold" />
-                        <TextBlock Margin="0,4,0,0" Text='"Una buena configuracion es el backend de una vida tranquila."' Foreground="#64748B" FontStyle="Italic" />
-                    </StackPanel>
-                    <Button DockPanel.Dock="Right"
-                            Height="42"
-                            HorizontalAlignment="Right"
-                            MinWidth="180"
-                            Padding="20,0"
-                            Command="{Binding CreateConnectionCommand}"
-                            Style="{StaticResource MaterialDesignRaisedButton}"
-                            Content="+ Nueva Conexion" />
-                </DockPanel>
+    <UserControl.Resources>
+        <Style x:Key="ConnectionCardStyle" TargetType="materialDesign:Card">
+            <Setter Property="Width" Value="320" />
+            <Setter Property="Margin" Value="0,0,18,18" />
+            <Setter Property="Padding" Value="24" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="UniformCornerRadius" Value="30" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="materialDesign:ElevationAssist.Elevation" Value="Dp2" />
+        </Style>
 
-                <ItemsControl ItemsSource="{Binding Connections}">
+        <Style x:Key="SectionLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#94A3B8" />
+        </Style>
+
+        <Style x:Key="ConnectionsContentBlurStyle" TargetType="StackPanel">
+            <Setter Property="Effect" Value="{x:Null}" />
+            <Setter Property="Opacity" Value="1" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsConnectionEditorOpen}" Value="True">
+                    <Setter Property="Opacity" Value="0.82" />
+                    <Setter Property="Effect">
+                        <Setter.Value>
+                            <BlurEffect Radius="11" />
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid MinHeight="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" Margin="5,0">
+        <StackPanel Style="{StaticResource ConnectionsContentBlurStyle}">
+            <StackPanel Margin="0,0,0,24">
+                <TextBlock Text="Gestion de Conexiones"
+                               FontSize="28"
+                               FontWeight="Bold"
+                               Foreground="#0F172A" />
+                <TextBlock Margin="0,6,0,0"
+                               Text="Configura origenes, destinos y credenciales con una interfaz mas clara."
+                               FontSize="15"
+                               Foreground="#64748B" />
+            </StackPanel>
+            <ItemsControl ItemsSource="{Binding Connections}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel />
@@ -31,78 +58,155 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <materialDesign:Card Margin="0,0,16,16"
-                                                 Padding="10"
-                                                 UniformCornerRadius="18"
-                                                 Background="White"
-                                                 materialDesign:ElevationAssist.Elevation="Dp2">
+                            <materialDesign:Card Style="{StaticResource ConnectionCardStyle}">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
-                                    <Border Width="36" Height="36" Background="#EEF2FF" CornerRadius="12" HorizontalAlignment="Left">
-                                    <materialDesign:PackIcon Kind="Server"
-                                                                 Width="16"
-                                                                 Height="16"
-                                                                 HorizontalAlignment="Center"
-                                                                 VerticalAlignment="Center"
-                                                                 Foreground="{StaticResource PrimaryHueMidBrush}" />
-                                    </Border>
 
-                                    <StackPanel Grid.Row="1" Margin="0,18,0,0">
-                                        <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                        <TextBlock Margin="0,4,0,0" Text="{Binding Summary}" Foreground="#64748B" TextWrapping="Wrap" />
-                                    </StackPanel>
-
-                                    <Grid Grid.Row="2" Margin="0,18,0,0">
+                                    <Grid Grid.Row="0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <Border Padding="8,4" Background="#F8FAFC" CornerRadius="8" HorizontalAlignment="Left">
-                                            <TextBlock Text="{Binding TypeLabel}" Foreground="#334155" FontWeight="SemiBold" FontSize="12" />
+
+                                        <Border Width="46"
+                                                Height="46"
+                                                Background="#F3F6FD"
+                                                CornerRadius="18"
+                                                HorizontalAlignment="Left">
+                                            <materialDesign:PackIcon Kind="Server"
+                                                                     Width="18"
+                                                                     Height="18"
+                                                                     HorizontalAlignment="Center"
+                                                                     VerticalAlignment="Center"
+                                                                     Foreground="#94A3B8" />
                                         </Border>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Ellipse Width="8" Height="8" Fill="#4ADE80" Margin="0,0,6,0" />
-                                            <TextBlock Text="Online" Foreground="#22C55E" FontSize="12" />
-                                        </StackPanel>
+
+                                        <Border Grid.Column="1"
+                                                Padding="12,6"
+                                                Background="#EDFCF3"
+                                                CornerRadius="16">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Ellipse Width="7"
+                                                         Height="7"
+                                                         Margin="0,0,6,0"
+                                                         Fill="#22C55E"
+                                                         VerticalAlignment="Center" />
+                                                <TextBlock Text="ONLINE"
+                                                           FontSize="11"
+                                                           FontWeight="Bold"
+                                                           Foreground="#16A34A" />
+                                            </StackPanel>
+                                        </Border>
                                     </Grid>
 
-                                    <WrapPanel Grid.Row="3" Margin="0,20,0,0">
-                                        <Button Margin="0,0,8,8"
-                                                MinWidth="96"
-                                                Command="{Binding DataContext.EditConnectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}"
-                                                Style="{StaticResource MaterialDesignOutlinedButton}"
-                                                Content="Editar" />
-                                        <Button Margin="0,0,0,8"
-                                                MinWidth="96"
-                                                Command="{Binding DataContext.DeleteConnectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}"
-                                                Style="{StaticResource MaterialDesignOutlinedButton}"
-                                                Content="Eliminar" />
-                                    </WrapPanel>
+                                    <StackPanel Grid.Row="1"
+                                                Margin="0,24,0,0">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="18"
+                                                   FontWeight="Bold"
+                                                   Foreground="#1E293B"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Margin="0,6,0,0"
+                                                   Text="{Binding Summary}"
+                                                   Foreground="#94A3B8"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+
+                                    <Grid Grid.Row="3"
+                                          Margin="0,24,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Padding="10,5"
+                                                Background="#F3F5FC"
+                                                CornerRadius="14"
+                                                HorizontalAlignment="Left" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding TypeLabel}"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#64748B" />
+                                        </Border>
+
+                                        <WrapPanel Grid.Column="1">
+                                            <Button Margin="0,0,8,0"
+                                                    MinWidth="78"
+                                                    Command="{Binding DataContext.EditConnectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource AppPillButton}"
+                                                    Content="Editar" />
+                                            <Button MinWidth="78"
+                                                    Command="{Binding DataContext.DeleteConnectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource AppPillButton}"
+                                                    Background="#FFF1F2"
+                                                    BorderBrush="#FFE4E6"
+                                                    Foreground="{StaticResource AppDangerBrush}"
+                                                    Content="Eliminar" />
+                                        </WrapPanel>
+                                    </Grid>
                                 </Grid>
                             </materialDesign:Card>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-        </ScrollViewer>
+            </ItemsControl>
 
-        <Border Background="#7A0F172A"
+            <Button Width="320"
+                    Height="230"
+                    Margin="0,4,0,28"
+                    HorizontalAlignment="Left"
+                    Command="{Binding CreateConnectionCommand}"
+                    Background="White"
+                    BorderBrush="#D8E4FF"
+                    BorderThickness="1"
+                    Cursor="Hand"
+                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                    materialDesign:ButtonAssist.CornerRadius="34">
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <Border Width="58"
+                            Height="58"
+                            Margin="0,0,0,18"
+                            Background="#F3F6FD"
+                            CornerRadius="22">
+                        <materialDesign:PackIcon Kind="Plus"
+                                                 Width="28"
+                                                 Height="28"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="#94A3B8" />
+                    </Border>
+                    <TextBlock Text="Anadir FTP / Local"
+                               FontSize="17"
+                               FontWeight="Bold"
+                               Foreground="#1E293B"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Margin="0,10,0,0"
+                               Text="Configura servidores remotos para redundancia."
+                               Width="200"
+                               TextAlignment="Center"
+                               Foreground="#94A3B8"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
+        <Border Panel.ZIndex="60"
                 Visibility="{Binding IsConnectionEditorOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <Grid>
-                <materialDesign:Card Width="560"
-                                     MaxWidth="560"
+            <Grid Margin="18">
+                <materialDesign:Card Width="620"
+                                     MaxWidth="620"
                                      Margin="24"
                                      Padding="0"
                                      HorizontalAlignment="Center"
                                      VerticalAlignment="Center"
-                                     UniformCornerRadius="22"
+                                     UniformCornerRadius="30"
                                      Background="White"
                                      materialDesign:ElevationAssist.Elevation="Dp4">
                     <Grid>
@@ -112,9 +216,13 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <DockPanel Margin="24,20,24,16">
-                            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                                <Border Width="38" Height="38" Background="#EEF2FF" CornerRadius="10">
+                        <DockPanel Margin="28,24,28,18">
+                            <StackPanel DockPanel.Dock="Left"
+                                        Orientation="Horizontal">
+                                <Border Width="42"
+                                        Height="42"
+                                        Background="#EEF2FF"
+                                        CornerRadius="16">
                                     <materialDesign:PackIcon Kind="Plus"
                                                              Width="20"
                                                              Height="20"
@@ -122,26 +230,37 @@
                                                              VerticalAlignment="Center"
                                                              Foreground="{StaticResource PrimaryHueMidBrush}" />
                                 </Border>
-                                <StackPanel Margin="12,0,0,0">
-                                    <TextBlock Text="Configurar Conexion A / B" FontSize="22" FontWeight="SemiBold" />
-                                    <TextBlock Text="Completa los parametros y valida la conexion antes de guardar." Foreground="#64748B" />
+                                <StackPanel Margin="14,0,0,0">
+                                    <TextBlock Text="Configurar Conexion"
+                                               FontSize="24"
+                                               FontWeight="Bold"
+                                               Foreground="#1E293B" />
+                                    <TextBlock Text="Completa los datos y valida la conexion antes de guardar."
+                                               Foreground="#64748B" />
                                 </StackPanel>
                             </StackPanel>
                             <Button DockPanel.Dock="Right"
                                     Command="{Binding CloseConnectionEditorCommand}"
-                                    Style="{StaticResource MaterialDesignToolButton}">
+                                    Style="{StaticResource AppToolButton}">
                                 <materialDesign:PackIcon Kind="Close" />
                             </Button>
                         </DockPanel>
 
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24,0,24,24">
-                                <TextBlock Text="{Binding ConnectionEditorTitle}" FontSize="18" FontWeight="SemiBold" />
-                                <TextBlock Margin="0,6,0,18" Text="Selecciona el tipo y luego completa solo los campos requeridos." Foreground="#64748B" TextWrapping="Wrap" />
+                        <ScrollViewer Grid.Row="1"
+                                      VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="28,0,28,28">
+                                <TextBlock Text="{Binding ConnectionEditorTitle}"
+                                           FontSize="18"
+                                           FontWeight="SemiBold"
+                                           Foreground="#1E293B" />
+                                <TextBlock Margin="0,6,0,18"
+                                           Text="Selecciona el tipo y muestra solo los campos necesarios para ese endpoint."
+                                           Foreground="#64748B"
+                                           TextWrapping="Wrap" />
 
                                 <ComboBox SelectedValue="{Binding EditableConnection.Type}"
                                           SelectedValuePath="Tag"
-                                          Style="{StaticResource MaterialDesignFilledComboBox}"
+                                          Style="{StaticResource AppFilledComboBox}"
                                           materialDesign:HintAssist.Hint="Tipo de conexion"
                                           Margin="0,0,0,14">
                                     <ComboBoxItem Content="Selecciona un tipo" Tag="None" />
@@ -150,10 +269,16 @@
                                     <ComboBoxItem Content="SFTP" Tag="Sftp" />
                                 </ComboBox>
 
-                                <TextBox Text="{Binding EditableConnection.Name}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Nombre descriptivo" Margin="0,0,0,14" />
+                                <TextBox Text="{Binding EditableConnection.Name}"
+                                         Style="{StaticResource AppFilledTextBox}"
+                                         materialDesign:HintAssist.Hint="Nombre descriptivo"
+                                         Margin="0,0,0,14" />
 
                                 <Grid Visibility="{Binding IsLocalConnectionType, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <TextBox Text="{Binding EditableConnection.Host}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Ruta local" Margin="0,0,0,14" />
+                                    <TextBox Text="{Binding EditableConnection.Host}"
+                                             Style="{StaticResource AppFilledTextBox}"
+                                             materialDesign:HintAssist.Hint="Ruta local"
+                                             Margin="0,0,0,14" />
                                 </Grid>
 
                                 <Grid Visibility="{Binding IsRemoteConnectionType, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -168,12 +293,42 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
-                                    <TextBox Grid.Row="0" Grid.Column="0" Margin="0,0,12,14" Text="{Binding EditableConnection.Host}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Host o IP" />
-                                    <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,14" Text="{Binding EditableConnection.Port}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Puerto" />
-                                    <TextBox Grid.Row="1" Grid.ColumnSpan="2" Margin="0,0,0,14" Text="{Binding EditableConnection.Username}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Usuario" />
-                                    <TextBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,0,0,14" Text="{Binding EditableConnection.Password}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Contrasena / token" />
-                                    <TextBox Grid.Row="3" Grid.Column="0" Margin="0,0,12,14" Text="{Binding EditableConnection.TimeoutSeconds}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Timeout (segundos)" />
-                                    <TextBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,14" Text="{Binding EditableConnection.RetryCount}" Style="{StaticResource MaterialDesignFilledTextBox}" materialDesign:HintAssist.Hint="Reintentos" />
+                                    <TextBox Grid.Row="0"
+                                             Grid.Column="0"
+                                             Margin="0,0,12,14"
+                                             Text="{Binding EditableConnection.Host}"
+                                             Style="{StaticResource AppFilledTextBox}"
+                                             materialDesign:HintAssist.Hint="Host o IP" />
+                                    <TextBox Grid.Row="0"
+                                             Grid.Column="1"
+                                             Margin="0,0,0,14"
+                                             Text="{Binding EditableConnection.Port}"
+                                             Style="{StaticResource AppFilledTextBox}"
+                                             materialDesign:HintAssist.Hint="Puerto" />
+                                    <TextBox Grid.Row="1"
+                                             Grid.ColumnSpan="2"
+                                             Margin="0,0,0,14"
+                                             Text="{Binding EditableConnection.Username}"
+                                             Style="{StaticResource AppFilledTextBox}"
+                                             materialDesign:HintAssist.Hint="Usuario" />
+                                    <TextBox Grid.Row="2"
+                                             Grid.ColumnSpan="2"
+                                             Margin="0,0,0,14"
+                                             Text="{Binding EditableConnection.Password}"
+                                             Style="{StaticResource AppFilledTextBox}"
+                                             materialDesign:HintAssist.Hint="Contrasena o token" />
+                                    <TextBox Grid.Row="3"
+                                             Grid.Column="0"
+                                             Margin="0,0,12,14"
+                                             Text="{Binding EditableConnection.TimeoutSeconds}"
+                                             Style="{StaticResource AppFilledTextBox}"
+                                             materialDesign:HintAssist.Hint="Timeout (segundos)" />
+                                    <TextBox Grid.Row="3"
+                                             Grid.Column="1"
+                                             Margin="0,0,0,14"
+                                             Text="{Binding EditableConnection.RetryCount}"
+                                             Style="{StaticResource AppFilledTextBox}"
+                                             materialDesign:HintAssist.Hint="Reintentos" />
                                 </Grid>
 
                                 <Grid Visibility="{Binding IsSftpConnectionType, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -184,49 +339,58 @@
 
                                     <TextBox Grid.Row="0"
                                              Text="{Binding EditableConnection.PrivateKeyPath}"
-                                             Style="{StaticResource MaterialDesignFilledTextBox}"
+                                             Style="{StaticResource AppFilledTextBox}"
                                              materialDesign:HintAssist.Hint="Llave privada SFTP (.pem / .ppk)"
                                              Margin="0,0,0,14" />
 
                                     <TextBox Grid.Row="1"
                                              Text="{Binding EditableConnection.HostKeyFingerprint}"
-                                             Style="{StaticResource MaterialDesignFilledTextBox}"
-                                             materialDesign:HintAssist.Hint="Huella del host (ej. ssh-rsa 2048 77:5d:... o SHA256:...)"
+                                             Style="{StaticResource AppFilledTextBox}"
+                                             materialDesign:HintAssist.Hint="Huella del host"
                                              Margin="0,0,0,14" />
                                 </Grid>
 
-                                <CheckBox IsChecked="{Binding EditableConnection.IsEnabled}" Content="Conexion habilitada" Margin="0,0,0,8" />
+                                <Border Padding="16,12"
+                                        Background="#F8FAFF"
+                                        BorderBrush="{StaticResource AppPanelBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="18">
+                                    <CheckBox IsChecked="{Binding EditableConnection.IsEnabled}"
+                                              Content="Conexion habilitada" />
+                                </Border>
                             </StackPanel>
                         </ScrollViewer>
 
-                        <Border Grid.Row="2" Background="#F8FAFC" CornerRadius="0,0,22,22">
-                            <WrapPanel Margin="24,18">
-                                <Button Margin="0,0,12,8"
-                                        MinWidth="170"
-                                        Height="44"
-                                        Command="{Binding TestConnectionCommand}"
-                                        Style="{StaticResource MaterialDesignRaisedButton}"
-                                        Background="{Binding TestConnectionButtonBackground}"
-                                        Foreground="{Binding TestConnectionButtonForeground}"
-                                        Content="{Binding TestConnectionButtonText}" />
-                                <Button Margin="0,0,12,8"
-                                        MinWidth="170"
-                                        Height="44"
-                                        Command="{Binding SaveConnectionCommand}"
-                                        Style="{StaticResource MaterialDesignRaisedButton}"
-                                        Content="Guardar Conexion" />
-                                <Button Margin="0,0,0,8"
-                                        MinWidth="120"
-                                        Height="44"
-                                        Command="{Binding CloseConnectionEditorCommand}"
-                                        Style="{StaticResource MaterialDesignOutlinedButton}"
-                                        Content="Cerrar" />
-                                <TextBlock Margin="0,4,0,0"
-                                           Width="520"
+                        <Border Grid.Row="2"
+                                Background="#F8FAFF"
+                                CornerRadius="0,0,30,30">
+                            <StackPanel Margin="28,18,28,22">
+                                <WrapPanel>
+                                    <Button Margin="0,0,12,8"
+                                            Command="{Binding TestConnectionCommand}"
+                                            Style="{StaticResource AppPillButton}"
+                                            Background="{Binding TestConnectionButtonBackground}"
+                                            Foreground="{Binding TestConnectionButtonForeground}"
+                                            Content="{Binding TestConnectionButtonText}" />
+                                    <Button Margin="0,0,12,8"
+                                            Command="{Binding SaveConnectionCommand}"
+                                            Style="{StaticResource AppPillButton}"
+                                            Background="#F3F5FC"
+                                            Content="Guardar Conexion" />
+                                    <Button Margin="0,0,0,8"
+                                            MinWidth="120"
+                                            Command="{Binding CloseConnectionEditorCommand}"
+                                            Style="{StaticResource AppPillButton}"
+                                            Foreground="{StaticResource AppDangerBrush}"
+                                            Background="#FFF1F2"
+                                            BorderBrush="#FFE4E6"
+                                            Content="Cerrar" />
+                                </WrapPanel>
+                                <TextBlock Margin="0,8,0,0"
                                            Text="{Binding TestConnectionStatusText}"
                                            Foreground="{Binding TestConnectionStatusForeground}"
                                            TextWrapping="Wrap" />
-                            </WrapPanel>
+                            </StackPanel>
                         </Border>
                     </Grid>
                 </materialDesign:Card>

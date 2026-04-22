@@ -13,14 +13,118 @@
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign3.Defaults.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <SolidColorBrush x:Key="SkyBackgroundBrush" Color="#F4F6FB" />
-            <SolidColorBrush x:Key="SidebarBrush" Color="#FFF" />
-            <SolidColorBrush x:Key="SidebarSurfaceBrush" Color="#16213E" />
-            <SolidColorBrush x:Key="SidebarTextBrush" Color="#D7E1FF" />
+            <LinearGradientBrush x:Key="WindowBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#FCFDFF" Offset="0" />
+                <GradientStop Color="#F7F9FF" Offset="0.55" />
+                <GradientStop Color="#F3F6FF" Offset="1" />
+            </LinearGradientBrush>
+            <SolidColorBrush x:Key="SkyBackgroundBrush" Color="#F7F9FF" />
+            <SolidColorBrush x:Key="SidebarBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="SidebarSurfaceBrush" Color="#111A33" />
+            <SolidColorBrush x:Key="SidebarTextBrush" Color="#DDE6FF" />
             <SolidColorBrush x:Key="SidebarMutedBrush" Color="#94A3B8" />
-            <SolidColorBrush x:Key="PrimaryHueMidBrush" Color="#3949AB" />
+            <SolidColorBrush x:Key="PrimaryHueMidBrush" Color="#4F46E5" />
+            <SolidColorBrush x:Key="PrimaryHueLightBrush" Color="#EEF0FF" />
+            <SolidColorBrush x:Key="AppPanelBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="AppPanelBorderBrush" Color="#EEF2FF" />
+            <SolidColorBrush x:Key="AppMutedForegroundBrush" Color="#64748B" />
+            <SolidColorBrush x:Key="AppSubtleSurfaceBrush" Color="#F7F8FD" />
+            <SolidColorBrush x:Key="AppSubtleBorderBrush" Color="#E7EBFA" />
+            <SolidColorBrush x:Key="AppDangerBrush" Color="#EF4444" />
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
             <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+
+            <Style x:Key="AppRaisedButton" TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                <Setter Property="Height" Value="48" />
+                <Setter Property="Padding" Value="22,0" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Background" Value="{StaticResource PrimaryHueMidBrush}" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="24" />
+            </Style>
+
+            <Style x:Key="AppOutlinedButton" TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+                <Setter Property="Height" Value="44" />
+                <Setter Property="Padding" Value="18,0" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Background" Value="#F8FAFF" />
+                <Setter Property="BorderBrush" Value="{StaticResource AppSubtleBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="22" />
+            </Style>
+
+            <Style x:Key="AppPillButton" TargetType="Button" BasedOn="{StaticResource AppOutlinedButton}">
+                <Setter Property="Height" Value="34" />
+                <Setter Property="Padding" Value="16,0" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Background" Value="#F8FAFF" />
+                <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="18" />
+            </Style>
+
+            <Style x:Key="AppToolButton" TargetType="Button" BasedOn="{StaticResource MaterialDesignToolButton}">
+                <Setter Property="Background" Value="#F3F5FC" />
+                <Setter Property="Foreground" Value="#334155" />
+                <Setter Property="Width" Value="38" />
+                <Setter Property="Height" Value="38" />
+                <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="19" />
+            </Style>
+
+            <Style x:Key="AppFloatingTextBox" TargetType="TextBox" BasedOn="{StaticResource MaterialDesignFloatingHintTextBox}">
+                <Setter Property="Background" Value="#F7F8FD" />
+                <Setter Property="BorderBrush" Value="{StaticResource AppSubtleBorderBrush}" />
+                <Setter Property="materialDesign:TextFieldAssist.TextFieldCornerRadius" Value="5" />
+                <Setter Property="materialDesign:TextFieldAssist.UnderlineCornerRadius" Value="5,5,0,0" />
+            </Style>
+
+            <Style x:Key="AppFilledTextBox" TargetType="TextBox" BasedOn="{StaticResource MaterialDesignFilledTextBox}">
+                <Setter Property="Background" Value="#F7F8FD" />
+                <Setter Property="BorderBrush" Value="{StaticResource AppSubtleBorderBrush}" />
+                <Setter Property="materialDesign:TextFieldAssist.TextFieldCornerRadius" Value="5" />
+                <Setter Property="materialDesign:TextFieldAssist.UnderlineCornerRadius" Value="5,5,0,0" />
+            </Style>
+
+            <Style x:Key="AppOutlinedTextBox" TargetType="TextBox" BasedOn="{StaticResource MaterialDesignOutlinedTextBox}">
+                <Setter Property="Background" Value="#FFFFFF" />
+                <Setter Property="BorderBrush" Value="{StaticResource AppSubtleBorderBrush}" />
+                <Setter Property="materialDesign:TextFieldAssist.TextFieldCornerRadius" Value="5" />
+                <Setter Property="materialDesign:TextFieldAssist.UnderlineCornerRadius" Value="5,5,0,0" />
+            </Style>
+
+            <Style x:Key="AppFloatingComboBox" TargetType="ComboBox" BasedOn="{StaticResource MaterialDesignFloatingHintComboBox}">
+                <Setter Property="Background" Value="#F7F8FD" />
+                <Setter Property="BorderBrush" Value="{StaticResource AppSubtleBorderBrush}" />
+                <Setter Property="materialDesign:TextFieldAssist.TextFieldCornerRadius" Value="5" />
+                <Setter Property="materialDesign:TextFieldAssist.UnderlineCornerRadius" Value="5,5,0,0" />
+            </Style>
+
+            <Style x:Key="AppFilledComboBox" TargetType="ComboBox" BasedOn="{StaticResource MaterialDesignFilledComboBox}">
+                <Setter Property="Background" Value="#F7F8FD" />
+                <Setter Property="BorderBrush" Value="{StaticResource AppSubtleBorderBrush}" />
+                <Setter Property="materialDesign:TextFieldAssist.TextFieldCornerRadius" Value="5" />
+                <Setter Property="materialDesign:TextFieldAssist.UnderlineCornerRadius" Value="5,5,0,0" />
+            </Style>
+
+            <Style x:Key="AppOutlinedComboBox" TargetType="ComboBox" BasedOn="{StaticResource MaterialDesignOutlinedComboBox}">
+                <Setter Property="Background" Value="#FFFFFF" />
+                <Setter Property="BorderBrush" Value="{StaticResource AppSubtleBorderBrush}" />
+                <Setter Property="materialDesign:TextFieldAssist.TextFieldCornerRadius" Value="5" />
+                <Setter Property="materialDesign:TextFieldAssist.UnderlineCornerRadius" Value="5,5,0,0" />
+            </Style>
+
+            <Style x:Key="AppFloatingDatePicker" TargetType="DatePicker" BasedOn="{StaticResource MaterialDesignFloatingHintDatePicker}">
+                <Setter Property="Background" Value="#F7F8FD" />
+                <Setter Property="BorderBrush" Value="{StaticResource AppSubtleBorderBrush}" />
+                <Setter Property="materialDesign:TextFieldAssist.TextFieldCornerRadius" Value="5" />
+                <Setter Property="materialDesign:TextFieldAssist.UnderlineCornerRadius" Value="5,5,0,0" />
+            </Style>
+
+            <Style x:Key="AppFloatingTimePicker" TargetType="materialDesign:TimePicker" BasedOn="{StaticResource MaterialDesignFloatingHintTimePicker}">
+                <Setter Property="Background" Value="#F7F8FD" />
+                <Setter Property="BorderBrush" Value="{StaticResource AppSubtleBorderBrush}" />
+                <Setter Property="materialDesign:TextFieldAssist.TextFieldCornerRadius" Value="5" />
+                <Setter Property="materialDesign:TextFieldAssist.UnderlineCornerRadius" Value="5,5,0,0" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

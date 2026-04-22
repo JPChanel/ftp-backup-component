@@ -9,7 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <StartupObject>app_ftp.Program</StartupObject>
-    <ApplicationIcon>Presentacion\Assets\icon.ico</ApplicationIcon>
+    <ApplicationIcon>Presentacion\Assets\icono.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Presentacion\Assets\icon.ico" />
+    <Content Include="Presentacion\Assets\icono.ico" />
   </ItemGroup>
 
   <ItemGroup>
